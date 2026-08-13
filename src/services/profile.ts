@@ -14,11 +14,12 @@ export async function fetchProfile(userId: string): Promise<Profile> {
 
 export async function updateProfile(
   userId: string,
-  updates: { displayName?: string },
+  updates: { displayName?: string; defaultCity?: string },
 ): Promise<void> {
-  const { error } = await supabase
-    .from('profiles')
-    .update({ display_name: updates.displayName })
-    .eq('id', userId);
+  const payload: { display_name?: string; default_city?: string } = {};
+  if (updates.displayName !== undefined) payload.display_name = updates.displayName;
+  if (updates.defaultCity !== undefined) payload.default_city = updates.defaultCity;
+
+  const { error } = await supabase.from('profiles').update(payload).eq('id', userId);
   if (error) throw new Error(error.message);
 }

@@ -46,8 +46,19 @@ export type City = {
   ticketmasterStateCode: string;
   ticketmasterCountryCode: string;
   mapCenter: { latitude: number; longitude: number };
+  /**
+   * IANA timezone — carried per-city so it's ready for when concert date/time
+   * formatting stops being hardcoded to NYC's timezone (see format-date.ts).
+   * Not wired in yet: only the NYC data is actually vouched for right now.
+   */
+  timezone: string;
 };
 
+// RA Guide-style set of major US EDM cities. Ticketmaster can query any of
+// these today (fetchTicketmasterConcerts already takes a City generically),
+// but NYC is the only one that's actually been tested/verified — the others
+// are here so the city switcher and default-city preference are ready for
+// when we're ready to vouch for them too.
 export const CITIES: City[] = [
   {
     id: 'nyc',
@@ -56,5 +67,51 @@ export const CITIES: City[] = [
     ticketmasterStateCode: 'NY',
     ticketmasterCountryCode: 'US',
     mapCenter: { latitude: 40.73, longitude: -73.99 },
+    timezone: 'America/New_York',
+  },
+  {
+    id: 'la',
+    label: 'Los Angeles',
+    ticketmasterCity: 'Los Angeles',
+    ticketmasterStateCode: 'CA',
+    ticketmasterCountryCode: 'US',
+    mapCenter: { latitude: 34.05, longitude: -118.24 },
+    timezone: 'America/Los_Angeles',
+  },
+  {
+    id: 'miami',
+    label: 'Miami',
+    ticketmasterCity: 'Miami',
+    ticketmasterStateCode: 'FL',
+    ticketmasterCountryCode: 'US',
+    mapCenter: { latitude: 25.76, longitude: -80.19 },
+    timezone: 'America/New_York',
+  },
+  {
+    id: 'chicago',
+    label: 'Chicago',
+    ticketmasterCity: 'Chicago',
+    ticketmasterStateCode: 'IL',
+    ticketmasterCountryCode: 'US',
+    mapCenter: { latitude: 41.88, longitude: -87.63 },
+    timezone: 'America/Chicago',
+  },
+  {
+    id: 'sf',
+    label: 'San Francisco',
+    ticketmasterCity: 'San Francisco',
+    ticketmasterStateCode: 'CA',
+    ticketmasterCountryCode: 'US',
+    mapCenter: { latitude: 37.77, longitude: -122.42 },
+    timezone: 'America/Los_Angeles',
+  },
+  {
+    id: 'vegas',
+    label: 'Las Vegas',
+    ticketmasterCity: 'Las Vegas',
+    ticketmasterStateCode: 'NV',
+    ticketmasterCountryCode: 'US',
+    mapCenter: { latitude: 36.17, longitude: -115.14 },
+    timezone: 'America/Los_Angeles',
   },
 ];

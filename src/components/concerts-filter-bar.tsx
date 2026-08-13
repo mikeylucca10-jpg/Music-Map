@@ -30,7 +30,7 @@ export function ConcertsFilterBar({
 
   return (
     <View style={styles.container}>
-      <View>
+      <View style={styles.cityWrapper}>
         <Pressable
           onPress={() => setCityMenuOpen((open) => !open)}
           style={({ pressed }) => pressed && styles.pressed}>
@@ -90,9 +90,20 @@ export function ConcertsFilterBar({
 const styles = StyleSheet.create({
   container: {
     gap: Spacing.two,
+    // React Native Web stamps every plain View with its own z-index:0
+    // stacking context by default, which traps cityMenu's zIndex below —
+    // without this, later siblings on the host screen (e.g. list.tsx's
+    // error/empty message card) paint over the open city dropdown.
+    zIndex: 100,
   },
   pressed: {
     opacity: 0.7,
+  },
+  cityWrapper: {
+    // Wins the stacking tie against the chips ScrollView sibling below it
+    // (both default to z-index:0 otherwise, and DOM order would let the
+    // chips paint over the open dropdown's top edge).
+    zIndex: 1,
   },
   cityPill: {
     alignSelf: 'flex-start',

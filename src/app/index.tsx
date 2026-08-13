@@ -10,6 +10,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WebBadge } from '@/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
+import { useApplyDefaultCity } from '@/hooks/use-apply-default-city';
 import { useAuth } from '@/hooks/use-auth';
 import { useEdmConcerts } from '@/hooks/use-edm-concerts';
 import { useProfile } from '@/hooks/use-profile';
@@ -24,7 +25,9 @@ export default function HomeScreen() {
   const theme = useTheme();
   const { session } = useAuth();
   const { profile } = useProfile(session?.user.id ?? null);
-  const { concerts, isLoading } = useEdmConcerts(CITIES[0]);
+  const [city, setCity] = useState(CITIES[0]);
+  useApplyDefaultCity(profile, setCity);
+  const { concerts, isLoading } = useEdmConcerts(city);
   const { isSaved, isSavePending, toggleSave } = useSavedConcerts(session?.user.id ?? null);
   const featured = concerts.slice(0, 6);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -76,7 +79,7 @@ export default function HomeScreen() {
 
           <View style={styles.featuredSection}>
             <ThemedText type="eyebrow" themeColor="textSecondary" style={styles.sectionHeading}>
-              Upcoming in NYC
+              Upcoming in {city.label}
             </ThemedText>
 
             {isLoading ? (

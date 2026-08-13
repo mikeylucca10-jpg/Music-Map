@@ -9,9 +9,11 @@ import { SkeletonCardRow } from '@/components/skeleton-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useApplyDefaultCity } from '@/hooks/use-apply-default-city';
 import { useAuth } from '@/hooks/use-auth';
 import { useConcertsFilters } from '@/hooks/use-concerts-filters';
 import { useEdmConcerts } from '@/hooks/use-edm-concerts';
+import { useProfile } from '@/hooks/use-profile';
 import { useSavedConcerts } from '@/hooks/use-saved-concerts';
 import { CITIES, Concert } from '@/types/concert';
 
@@ -20,11 +22,13 @@ export default function ListScreen() {
   const { concerts, isLoading, error, refresh } = useEdmConcerts(city);
   const { category, setCategory, categories, filteredConcerts } = useConcertsFilters(concerts);
   const { session } = useAuth();
+  const { profile } = useProfile(session?.user.id ?? null);
+  useApplyDefaultCity(profile, setCity);
   const { isSaved, isSavePending, toggleSave } = useSavedConcerts(session?.user.id ?? null);
   const [selectedConcert, setSelectedConcert] = useState<Concert | null>(null);
 
   return (
-    <ScreenScaffold title="EDM Concerts" subtitle="Upcoming shows in NYC.">
+    <ScreenScaffold title="EDM Concerts" subtitle={`Upcoming shows in ${city.label}.`}>
       <ConcertsFilterBar
         category={category}
         onCategoryChange={setCategory}

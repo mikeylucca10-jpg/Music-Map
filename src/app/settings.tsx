@@ -12,7 +12,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useProfile } from '@/hooks/use-profile';
 import { useSavedConcerts } from '@/hooks/use-saved-concerts';
 import { useTheme } from '@/hooks/use-theme';
-import { SavedConcert } from '@/types/concert';
+import { CITIES, SavedConcert } from '@/types/concert';
 
 const SAVED_CARD_WIDTH = 170;
 
@@ -120,6 +120,43 @@ export default function SettingsScreen() {
             style={({ pressed }) => [styles.signOutButton, pressed && styles.pressed]}>
             <ThemedText style={styles.signOutButtonLabel}>Sign Out</ThemedText>
           </Pressable>
+        </ThemedView>
+      )}
+
+      {isSupabaseConfigured && !isLoading && session && (
+        <ThemedView style={styles.savedSection}>
+          <ThemedText type="eyebrow" themeColor="textSecondary" style={styles.savedHeading}>
+            Default City
+          </ThemedText>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.cityRow}>
+            {CITIES.map((city) => {
+              const selected = profile?.defaultCity === city.id;
+              return (
+                <Pressable
+                  key={city.id}
+                  onPress={() => updateProfile({ defaultCity: city.id })}
+                  style={({ pressed }) => pressed && styles.pressed}>
+                  <ThemedView
+                    style={[
+                      styles.cityChip,
+                      { backgroundColor: selected ? theme.accent : theme.backgroundElement },
+                    ]}>
+                    <ThemedText
+                      type="smallBold"
+                      style={{ color: selected ? theme.accentInk : theme.text }}>
+                      {city.label}
+                    </ThemedText>
+                  </ThemedView>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+          <ThemedText type="small" themeColor="textSecondary" style={styles.centerText}>
+            Sets which city Home, Explore, and List open to by default.
+          </ThemedText>
         </ThemedView>
       )}
 
@@ -311,6 +348,15 @@ const styles = StyleSheet.create({
   savedRow: {
     gap: Spacing.three,
     paddingHorizontal: Spacing.four,
+  },
+  cityRow: {
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.four,
+  },
+  cityChip: {
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: Radius.pill,
   },
   centerText: {
     paddingHorizontal: Spacing.four,

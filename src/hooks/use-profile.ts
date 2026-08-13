@@ -20,7 +20,7 @@ export function useProfile(userId: string | null) {
   const [updateError, setUpdateError] = useState<string | null>(null);
 
   const updateProfile = useCallback(
-    async (updates: { displayName?: string }) => {
+    async (updates: { displayName?: string; defaultCity?: string }) => {
       if (!userId) return false;
       setUpdateError(null);
       try {
