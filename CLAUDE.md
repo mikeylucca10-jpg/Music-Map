@@ -41,3 +41,10 @@ This is an Expo Router (file-based routing, `src/app/`) universal app targeting 
 **Database schema** lives in `supabase/migrations/` (plain SQL, no ORM). There is no standing Supabase CLI session — schema changes are written here as a new timestamped migration file and applied by pasting into the Supabase SQL Editor, not by running `supabase db push` (unless the user has just handed over a fresh personal access token for that).
 
 **A repo-wide ESLint rule** (`react-hooks/set-state-in-effect`, from `eslint-config-expo`) flags most `setState` calls inside `useEffect`, including indirect ones (e.g. calling a `useCallback`-wrapped async function that eventually sets state). Where the pattern is intentional and safe (e.g. fetch-on-mount), the established convention in this codebase is a targeted `// eslint-disable-next-line react-hooks/set-state-in-effect` with a one-line comment explaining why it's safe — see `use-cached-resource.ts` for an example — rather than restructuring around the rule.
+
+## Known open items (deferred until closer to launch)
+
+A security audit (2026-08-13) deferred three items on purpose — don't build these proactively:
+- **Ticketmaster key exposure**: `EXPO_PUBLIC_TICKETMASTER_API_KEY` ships in the client bundle. Fix is a backend proxy (Supabase Edge Function), not a config change.
+- **Bot protection on signup/signin**: needs a Supabase Dashboard toggle (not `supabase/config.toml`, which is local-dev-only), an hCaptcha/Turnstile account, and a `WebView`-based widget in the app — no native RN CAPTCHA widget exists.
+- **`profiles` column-level write protection**: the UPDATE RLS policy checks row ownership but not which columns are written. Not exploitable today (no privileged field exists), but revisit immediately if one is ever added (e.g. `is_admin`).

@@ -4,6 +4,7 @@ export type Concert = {
   id: string;
   source: ConcertSource;
   name: string;
+  artist?: string;
   url: string;
   startDateTime: string;
   venueName: string;
@@ -13,6 +14,9 @@ export type Concert = {
   imageUrl?: string;
   isFree?: boolean;
   is21Plus?: boolean;
+  priceMin?: number;
+  priceMax?: number;
+  priceCurrency?: string;
 };
 
 export type SavedConcert = Pick<

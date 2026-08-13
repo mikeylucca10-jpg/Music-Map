@@ -10,15 +10,19 @@ type TicketmasterVenue = {
   location?: { latitude?: string; longitude?: string };
 };
 
+type TicketmasterAttraction = {
+  name?: string;
+};
+
 type TicketmasterEvent = {
   id: string;
   name: string;
   url: string;
   dates?: { start?: { dateTime?: string } };
   images?: { url: string }[];
-  priceRanges?: { min?: number }[];
+  priceRanges?: { min?: number; max?: number; currency?: string }[];
   ageRestrictions?: { legalAgeEnforced?: boolean };
-  _embedded?: { venues?: TicketmasterVenue[] };
+  _embedded?: { venues?: TicketmasterVenue[]; attractions?: TicketmasterAttraction[] };
 };
 
 type TicketmasterResponse = {
@@ -60,10 +64,13 @@ export async function fetchTicketmasterConcerts(city: City): Promise<Concert[]> 
     const startDateTime = event.dates?.start?.dateTime;
     if (!venue || Number.isNaN(latitude) || Number.isNaN(longitude) || !startDateTime) continue;
 
+    const priceRange = event.priceRanges?.[0];
+
     concerts.push({
       id: `ticketmaster-${event.id}`,
       source: 'ticketmaster',
       name: event.name,
+      artist: event._embedded?.attractions?.[0]?.name,
       url: event.url,
       startDateTime,
       venueName: venue.name ?? 'Venue TBA',
@@ -73,8 +80,11 @@ export async function fetchTicketmasterConcerts(city: City): Promise<Concert[]> 
       latitude,
       longitude,
       imageUrl: event.images?.[0]?.url,
-      isFree: event.priceRanges?.[0]?.min === 0,
+      isFree: priceRange?.min === 0,
       is21Plus: event.ageRestrictions?.legalAgeEnforced === true,
+      priceMin: priceRange?.min,
+      priceMax: priceRange?.max,
+      priceCurrency: priceRange?.currency,
     });
   }
 

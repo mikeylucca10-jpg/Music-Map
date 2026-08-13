@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ConcertListCard } from '@/components/concert-list-card';
+import { ConcertDetailSheet } from '@/components/concert-detail-sheet';
 import { ConcertsFilterBar } from '@/components/concerts-filter-bar';
 import { ConcertsMap } from '@/components/concerts-map';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useConcertsFilters } from '@/hooks/use-concerts-filters';
 import { useEdmConcerts } from '@/hooks/use-edm-concerts';
@@ -59,27 +59,15 @@ export default function ExploreScreen() {
         </View>
       )}
 
-      {selectedConcert && (
-        <View
-          style={[
-            styles.detailPanel,
-            { paddingBottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three },
-          ]}>
-          <ConcertListCard
-            concert={selectedConcert}
-            isSaved={session ? isSaved(selectedConcert.id) : undefined}
-            isSavePending={session ? isSavePending(selectedConcert.id) : undefined}
-            onToggleSave={session ? () => toggleSave(selectedConcert) : undefined}
-          />
-          <Pressable
-            onPress={() => setSelectedConcert(null)}
-            style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}>
-            <ThemedView type="backgroundElement" style={styles.closeButtonInner}>
-              <ThemedText type="smallBold">Close</ThemedText>
-            </ThemedView>
-          </Pressable>
-        </View>
-      )}
+      <ConcertDetailSheet
+        concert={selectedConcert}
+        onClose={() => setSelectedConcert(null)}
+        isSaved={selectedConcert && session ? isSaved(selectedConcert.id) : undefined}
+        isSavePending={selectedConcert && session ? isSavePending(selectedConcert.id) : undefined}
+        onToggleSave={
+          selectedConcert && session ? () => toggleSave(selectedConcert) : undefined
+        }
+      />
     </ThemedView>
   );
 }
@@ -111,24 +99,5 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     alignItems: 'center',
     maxWidth: 360,
-  },
-  detailPanel: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    gap: Spacing.two,
-    paddingHorizontal: Spacing.three,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  closeButton: {
-    alignSelf: 'center',
-  },
-  closeButtonInner: {
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.five,
   },
 });

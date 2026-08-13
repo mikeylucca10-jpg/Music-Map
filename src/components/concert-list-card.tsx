@@ -5,19 +5,8 @@ import { ExternalLink } from '@/components/external-link';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { formatConcertDateTime } from '@/lib/format-date';
 import { Concert } from '@/types/concert';
-
-// Hardcoded to NYC's timezone since that's the only city CITIES has today
-// (src/types/concert.ts) — revisit with a per-city timezone once more cities
-// are added, otherwise a device outside US-Eastern shows the wrong local hour.
-const dateFormatter = new Intl.DateTimeFormat('en-US', {
-  weekday: 'short',
-  month: 'short',
-  day: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit',
-  timeZone: 'America/New_York',
-});
 
 type ConcertCardData = Pick<
   Concert,
@@ -58,7 +47,7 @@ export function ConcertListCard({
         )}
       </View>
       <ThemedText type="small" themeColor="textSecondary">
-        {dateFormatter.format(new Date(concert.startDateTime))}
+        {formatConcertDateTime(concert.startDateTime)}
       </ThemedText>
       <ThemedText type="small" themeColor="textSecondary">
         {concert.venueName}

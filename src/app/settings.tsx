@@ -87,6 +87,7 @@ export default function SettingsScreen() {
                     onChangeText={setDisplayNameDraft}
                     placeholder="Display name"
                     placeholderTextColor={theme.textSecondary}
+                    maxLength={50}
                     style={[styles.input, { color: theme.text }]}
                   />
                 </ThemedView>
