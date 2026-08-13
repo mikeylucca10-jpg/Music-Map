@@ -20,8 +20,10 @@ export function useContentInsets() {
       paddingBottom: insets.bottom,
     },
     web: {
-      paddingTop: Spacing.six,
-      paddingBottom: Spacing.four,
+      // The web tab bar floats at the bottom now (matching native), so it's
+      // paddingBottom that needs to clear it, not paddingTop.
+      paddingTop: Spacing.four,
+      paddingBottom: insets.bottom,
     },
   });
 

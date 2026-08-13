@@ -1,15 +1,20 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
+import { ConcertDetailSheet } from '@/components/concert-detail-sheet';
 import { ConcertListCard } from '@/components/concert-list-card';
 import { ScreenScaffold } from '@/components/screen-scaffold';
+import { SkeletonCard } from '@/components/skeleton-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useProfile } from '@/hooks/use-profile';
 import { useSavedConcerts } from '@/hooks/use-saved-concerts';
 import { useTheme } from '@/hooks/use-theme';
+import { SavedConcert } from '@/types/concert';
+
+const SAVED_CARD_WIDTH = 170;
 
 export default function SettingsScreen() {
   const { session, isLoading, error, isSupabaseConfigured, signIn, signUp, signOut } = useAuth();
@@ -17,6 +22,7 @@ export default function SettingsScreen() {
   const { profile, error: profileError, updateProfile } = useProfile(userId);
   const {
     savedConcerts,
+    isLoading: isSavedConcertsLoading,
     isSavePending,
     error: savedConcertsError,
     toggleSave,
@@ -28,6 +34,7 @@ export default function SettingsScreen() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [displayNameDraft, setDisplayNameDraft] = useState('');
   const [confirmationPendingEmail, setConfirmationPendingEmail] = useState<string | null>(null);
+  const [selectedConcert, setSelectedConcert] = useState<SavedConcert | null>(null);
   const theme = useTheme();
 
   async function submit() {
@@ -55,178 +62,206 @@ export default function SettingsScreen() {
   return (
     <ScreenScaffold title="Settings">
       {!isSupabaseConfigured && (
-          <ThemedView type="backgroundElement" style={styles.messageCard}>
-            <ThemedText type="smallBold">Supabase isn&apos;t configured yet</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              Add <ThemedText type="code">EXPO_PUBLIC_SUPABASE_URL</ThemedText> and{' '}
-              <ThemedText type="code">EXPO_PUBLIC_SUPABASE_ANON_KEY</ThemedText> to{' '}
-              <ThemedText type="code">.env.local</ThemedText> from your Supabase project&apos;s
-              Settings → API page.
-            </ThemedText>
-          </ThemedView>
-        )}
+        <ThemedView type="backgroundElement" style={styles.messageCard}>
+          <ThemedText type="smallBold">Supabase isn&apos;t configured yet</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Add <ThemedText type="code">EXPO_PUBLIC_SUPABASE_URL</ThemedText> and{' '}
+            <ThemedText type="code">EXPO_PUBLIC_SUPABASE_ANON_KEY</ThemedText> to{' '}
+            <ThemedText type="code">.env.local</ThemedText> from your Supabase project&apos;s
+            Settings → API page.
+          </ThemedText>
+        </ThemedView>
+      )}
 
-        {isSupabaseConfigured && isLoading && (
-          <ThemedView style={styles.centerState}>
-            <ActivityIndicator />
-          </ThemedView>
-        )}
+      {isSupabaseConfigured && isLoading && (
+        <ThemedView style={styles.centerState}>
+          <ActivityIndicator color={theme.accent} />
+        </ThemedView>
+      )}
 
-        {isSupabaseConfigured && !isLoading && session && (
-          <ThemedView type="backgroundElement" style={styles.accountCard}>
-            <ThemedText type="small" themeColor="textSecondary">
-              Signed in as
-            </ThemedText>
-            <ThemedText type="default">{session.user.email}</ThemedText>
+      {isSupabaseConfigured && !isLoading && session && (
+        <ThemedView type="backgroundElement" style={styles.accountCard}>
+          <ThemedText type="small" themeColor="textSecondary">
+            Signed in as
+          </ThemedText>
+          <ThemedText type="default">{session.user.email}</ThemedText>
 
-            {isEditingName ? (
-              <View style={styles.nameEditRow}>
-                <ThemedView type="backgroundSelected" style={styles.nameInputWrapper}>
-                  <TextInput
-                    value={displayNameDraft}
-                    onChangeText={setDisplayNameDraft}
-                    placeholder="Display name"
-                    placeholderTextColor={theme.textSecondary}
-                    maxLength={50}
-                    style={[styles.input, { color: theme.text }]}
-                  />
-                </ThemedView>
-                <Pressable onPress={saveDisplayName} style={({ pressed }) => pressed && styles.pressed}>
-                  <ThemedText type="linkPrimary">Save</ThemedText>
-                </Pressable>
-              </View>
-            ) : profileError ? (
-              <ThemedText type="small" themeColor="textSecondary">
-                {profileError}
-              </ThemedText>
-            ) : null}
-            {!isEditingName && (
-              <Pressable onPress={startEditingName} style={({ pressed }) => pressed && styles.pressed}>
-                <ThemedText type="small" themeColor="textSecondary">
-                  Display name: {profile?.displayName || 'Not set'} · Edit
-                </ThemedText>
+          {isEditingName ? (
+            <View style={styles.nameEditRow}>
+              <ThemedView type="backgroundSelected" style={styles.nameInputWrapper}>
+                <TextInput
+                  value={displayNameDraft}
+                  onChangeText={setDisplayNameDraft}
+                  placeholder="Display name"
+                  placeholderTextColor={theme.textSecondary}
+                  maxLength={50}
+                  style={[styles.input, { color: theme.text }]}
+                />
+              </ThemedView>
+              <Pressable onPress={saveDisplayName} style={({ pressed }) => pressed && styles.pressed}>
+                <ThemedText type="linkPrimary">Save</ThemedText>
               </Pressable>
-            )}
-
-            <Pressable
-              onPress={signOut}
-              style={({ pressed }) => [styles.signOutButton, pressed && styles.pressed]}>
-              <ThemedText style={styles.signOutButtonLabel}>Sign Out</ThemedText>
-            </Pressable>
-          </ThemedView>
-        )}
-
-        {isSupabaseConfigured && !isLoading && session && (
-          <ThemedView style={styles.savedSection}>
-            <ThemedText type="smallBold" style={styles.savedHeading}>
-              Saved Concerts
+            </View>
+          ) : profileError ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              {profileError}
             </ThemedText>
-            {savedConcertsError && (
+          ) : null}
+          {!isEditingName && (
+            <Pressable onPress={startEditingName} style={({ pressed }) => pressed && styles.pressed}>
               <ThemedText type="small" themeColor="textSecondary">
-                {savedConcertsError}
+                Display name: {profile?.displayName || 'Not set'} · Edit
               </ThemedText>
-            )}
-            {savedConcerts.length === 0 ? (
-              <ThemedText type="small" themeColor="textSecondary" style={styles.centerText}>
-                No saved concerts yet. Tap the heart on a show in Explore or List to save it.
-              </ThemedText>
-            ) : (
-              savedConcerts.map((concert) => (
+            </Pressable>
+          )}
+
+          <Pressable
+            onPress={signOut}
+            style={({ pressed }) => [styles.signOutButton, pressed && styles.pressed]}>
+            <ThemedText style={styles.signOutButtonLabel}>Sign Out</ThemedText>
+          </Pressable>
+        </ThemedView>
+      )}
+
+      {isSupabaseConfigured && !isLoading && session && (
+        <ThemedView style={styles.savedSection}>
+          <ThemedText type="eyebrow" themeColor="textSecondary" style={styles.savedHeading}>
+            Saved Concerts
+          </ThemedText>
+          {savedConcertsError && (
+            <ThemedText type="small" themeColor="textSecondary">
+              {savedConcertsError}
+            </ThemedText>
+          )}
+          {isSavedConcertsLoading ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.savedRow}>
+              <SkeletonCard width={SAVED_CARD_WIDTH} />
+              <SkeletonCard width={SAVED_CARD_WIDTH} />
+            </ScrollView>
+          ) : savedConcerts.length === 0 ? (
+            <ThemedText type="small" themeColor="textSecondary" style={styles.centerText}>
+              No saved concerts yet. Tap the heart on a show in Explore or List to save it.
+            </ThemedText>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.savedRow}>
+              {savedConcerts.map((concert) => (
                 <ConcertListCard
                   key={concert.id}
                   concert={concert}
+                  width={SAVED_CARD_WIDTH}
+                  onPress={() => setSelectedConcert(concert)}
                   isSaved
                   isSavePending={isSavePending(concert.id)}
                   onToggleSave={() => toggleSave(concert)}
                 />
-              ))
-            )}
-          </ThemedView>
-        )}
+              ))}
+            </ScrollView>
+          )}
+        </ThemedView>
+      )}
 
-        {isSupabaseConfigured && !isLoading && !session && (
-          <ThemedView style={styles.form}>
-            <View style={styles.modeToggle}>
-              <Pressable
-                onPress={() => {
-                  setMode('signIn');
-                  setConfirmationPendingEmail(null);
-                }}
-                style={({ pressed }) => pressed && styles.pressed}>
-                <ThemedView
-                  type={mode === 'signIn' ? 'backgroundSelected' : 'backgroundElement'}
-                  style={styles.modeButton}>
-                  <ThemedText type="smallBold">Sign In</ThemedText>
-                </ThemedView>
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  setMode('signUp');
-                  setConfirmationPendingEmail(null);
-                }}
-                style={({ pressed }) => pressed && styles.pressed}>
-                <ThemedView
-                  type={mode === 'signUp' ? 'backgroundSelected' : 'backgroundElement'}
-                  style={styles.modeButton}>
-                  <ThemedText type="smallBold">Sign Up</ThemedText>
-                </ThemedView>
-              </Pressable>
-            </View>
-
-            {confirmationPendingEmail && (
-              <ThemedView type="backgroundSelected" style={styles.messageCard}>
-                <ThemedText type="smallBold">Check your email</ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
-                  We sent a confirmation link to {confirmationPendingEmail}. Click it, then come
-                  back here and sign in.
+      {isSupabaseConfigured && !isLoading && !session && (
+        <ThemedView style={styles.form}>
+          <View style={styles.modeToggle}>
+            <Pressable
+              onPress={() => {
+                setMode('signIn');
+                setConfirmationPendingEmail(null);
+              }}
+              style={({ pressed }) => pressed && styles.pressed}>
+              <ThemedView
+                style={[
+                  styles.modeButton,
+                  { backgroundColor: mode === 'signIn' ? theme.accent : theme.backgroundElement },
+                ]}>
+                <ThemedText
+                  type="smallBold"
+                  style={{ color: mode === 'signIn' ? theme.accentInk : theme.text }}>
+                  Sign In
                 </ThemedText>
               </ThemedView>
-            )}
-
-            <ThemedView type="backgroundElement" style={styles.inputWrapper}>
-              <TextInput
-                value={email}
-                onChangeText={setEmail}
-                placeholder="Email"
-                placeholderTextColor={theme.textSecondary}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                style={[styles.input, { color: theme.text }]}
-              />
-            </ThemedView>
-
-            <ThemedView type="backgroundElement" style={styles.inputWrapper}>
-              <TextInput
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Password"
-                placeholderTextColor={theme.textSecondary}
-                secureTextEntry
-                style={[styles.input, { color: theme.text }]}
-              />
-            </ThemedView>
-
-            {error && (
-              <ThemedText type="small" themeColor="textSecondary">
-                {error}
-              </ThemedText>
-            )}
-
-            <Pressable
-              onPress={submit}
-              disabled={!email.trim() || !password.trim() || isSubmitting}
-              style={({ pressed }) => [
-                styles.submitButton,
-                pressed && styles.pressed,
-                (!email.trim() || !password.trim() || isSubmitting) && styles.disabled,
-              ]}>
-              <ThemedText style={styles.submitButtonLabel}>
-                {isSubmitting ? 'Please wait…' : mode === 'signIn' ? 'Sign In' : 'Sign Up'}
-              </ThemedText>
             </Pressable>
-          </ThemedView>
-        )}
+            <Pressable
+              onPress={() => {
+                setMode('signUp');
+                setConfirmationPendingEmail(null);
+              }}
+              style={({ pressed }) => pressed && styles.pressed}>
+              <ThemedView
+                style={[
+                  styles.modeButton,
+                  { backgroundColor: mode === 'signUp' ? theme.accent : theme.backgroundElement },
+                ]}>
+                <ThemedText
+                  type="smallBold"
+                  style={{ color: mode === 'signUp' ? theme.accentInk : theme.text }}>
+                  Sign Up
+                </ThemedText>
+              </ThemedView>
+            </Pressable>
+          </View>
 
+          {confirmationPendingEmail && (
+            <ThemedView type="backgroundSelected" style={styles.messageCard}>
+              <ThemedText type="smallBold">Check your email</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                We sent a confirmation link to {confirmationPendingEmail}. Click it, then come
+                back here and sign in.
+              </ThemedText>
+            </ThemedView>
+          )}
+
+          <ThemedView type="backgroundElement" style={styles.inputWrapper}>
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              placeholder="Email"
+              placeholderTextColor={theme.textSecondary}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              style={[styles.input, { color: theme.text }]}
+            />
+          </ThemedView>
+
+          <ThemedView type="backgroundElement" style={styles.inputWrapper}>
+            <TextInput
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Password"
+              placeholderTextColor={theme.textSecondary}
+              secureTextEntry
+              style={[styles.input, { color: theme.text }]}
+            />
+          </ThemedView>
+
+          {error && (
+            <ThemedText type="small" themeColor="textSecondary">
+              {error}
+            </ThemedText>
+          )}
+
+          <Pressable
+            onPress={submit}
+            disabled={!email.trim() || !password.trim() || isSubmitting}
+            style={({ pressed }) => [
+              styles.submitButton,
+              pressed && styles.pressed,
+              (!email.trim() || !password.trim() || isSubmitting) && styles.disabled,
+            ]}>
+            <ThemedText style={styles.submitButtonLabel}>
+              {isSubmitting ? 'Please wait…' : mode === 'signIn' ? 'Sign In' : 'Sign Up'}
+            </ThemedText>
+          </Pressable>
+        </ThemedView>
+      )}
+
+      <ConcertDetailSheet
+        concert={selectedConcert}
+        onClose={() => setSelectedConcert(null)}
+        isSaved
+        isSavePending={selectedConcert ? isSavePending(selectedConcert.id) : undefined}
+        onToggleSave={selectedConcert ? () => toggleSave(selectedConcert) : undefined}
+      />
     </ScreenScaffold>
   );
 }
@@ -245,13 +280,13 @@ const styles = StyleSheet.create({
   messageCard: {
     gap: Spacing.two,
     marginHorizontal: Spacing.four,
-    borderRadius: Spacing.three,
+    borderRadius: Radius.card,
     padding: Spacing.four,
   },
   accountCard: {
     gap: Spacing.two,
     marginHorizontal: Spacing.four,
-    borderRadius: Spacing.three,
+    borderRadius: Radius.card,
     padding: Spacing.four,
   },
   nameEditRow: {
@@ -261,27 +296,31 @@ const styles = StyleSheet.create({
   },
   nameInputWrapper: {
     flex: 1,
-    borderRadius: Spacing.three,
+    borderRadius: Radius.card,
     paddingHorizontal: Spacing.three,
     justifyContent: 'center',
   },
   savedSection: {
     gap: Spacing.two,
-    marginHorizontal: Spacing.four,
     marginTop: Spacing.four,
   },
   savedHeading: {
     marginBottom: Spacing.one,
+    paddingHorizontal: Spacing.four,
+  },
+  savedRow: {
+    gap: Spacing.three,
+    paddingHorizontal: Spacing.four,
   },
   centerText: {
-    textAlign: 'center',
+    paddingHorizontal: Spacing.four,
   },
   signOutButton: {
     alignSelf: 'flex-start',
     marginTop: Spacing.two,
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.two,
-    borderRadius: Spacing.three,
+    borderRadius: Radius.card,
     backgroundColor: '#e5484d',
   },
   signOutButtonLabel: {
@@ -301,10 +340,10 @@ const styles = StyleSheet.create({
   modeButton: {
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.two,
-    borderRadius: Spacing.five,
+    borderRadius: Radius.pill,
   },
   inputWrapper: {
-    borderRadius: Spacing.three,
+    borderRadius: Radius.card,
     paddingHorizontal: Spacing.three,
     justifyContent: 'center',
   },
@@ -316,13 +355,13 @@ const styles = StyleSheet.create({
   submitButton: {
     height: 48,
     marginTop: Spacing.two,
-    borderRadius: Spacing.three,
-    backgroundColor: '#3c87f7',
+    borderRadius: Radius.pill,
+    backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
   },
   submitButtonLabel: {
-    color: '#ffffff',
+    color: '#0A0A0A',
     fontSize: 16,
     fontWeight: '700',
   },

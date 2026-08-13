@@ -7,11 +7,12 @@ import { ConcertsFilterBar } from '@/components/concerts-filter-bar';
 import { ConcertsMap } from '@/components/concerts-map';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useConcertsFilters } from '@/hooks/use-concerts-filters';
 import { useEdmConcerts } from '@/hooks/use-edm-concerts';
 import { useSavedConcerts } from '@/hooks/use-saved-concerts';
+import { useTheme } from '@/hooks/use-theme';
 import { CITIES, Concert } from '@/types/concert';
 
 export default function ExploreScreen() {
@@ -22,6 +23,7 @@ export default function ExploreScreen() {
   const [selectedConcert, setSelectedConcert] = useState<Concert | null>(null);
   const { session } = useAuth();
   const { isSaved, isSavePending, toggleSave } = useSavedConcerts(session?.user.id ?? null);
+  const theme = useTheme();
 
   return (
     <ThemedView style={styles.container}>
@@ -41,7 +43,7 @@ export default function ExploreScreen() {
       {(isLoading || error || (!isLoading && filteredConcerts.length === 0)) && (
         <View style={styles.centerOverlay} pointerEvents="box-none">
           <ThemedView type="backgroundElement" style={styles.messageCard}>
-            {isLoading && <ActivityIndicator />}
+            {isLoading && <ActivityIndicator color={theme.accent} />}
             {!isLoading && error && (
               <>
                 <ThemedText type="small">{error}</ThemedText>
@@ -82,6 +84,10 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingHorizontal: Spacing.three,
+    // Leaflet's own controls use z-index: 1000 internally (see its default
+    // CSS) — without a higher value here, the map's zoom buttons paint over
+    // the filter bar even though it's later in the DOM.
+    zIndex: 1100,
   },
   centerOverlay: {
     position: 'absolute',
@@ -92,10 +98,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.four,
+    zIndex: 1100,
   },
   messageCard: {
     gap: Spacing.two,
-    borderRadius: Spacing.three,
+    borderRadius: Radius.card,
     padding: Spacing.four,
     alignItems: 'center',
     maxWidth: 360,

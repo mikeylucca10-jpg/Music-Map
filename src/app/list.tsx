@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 
+import { ConcertDetailSheet } from '@/components/concert-detail-sheet';
 import { ConcertListCard } from '@/components/concert-list-card';
 import { ConcertsFilterBar } from '@/components/concerts-filter-bar';
 import { ScreenScaffold } from '@/components/screen-scaffold';
+import { SkeletonCardRow } from '@/components/skeleton-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -11,7 +13,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useConcertsFilters } from '@/hooks/use-concerts-filters';
 import { useEdmConcerts } from '@/hooks/use-edm-concerts';
 import { useSavedConcerts } from '@/hooks/use-saved-concerts';
-import { CITIES } from '@/types/concert';
+import { CITIES, Concert } from '@/types/concert';
 
 export default function ListScreen() {
   const [city, setCity] = useState(CITIES[0]);
@@ -19,6 +21,7 @@ export default function ListScreen() {
   const { category, setCategory, categories, filteredConcerts } = useConcertsFilters(concerts);
   const { session } = useAuth();
   const { isSaved, isSavePending, toggleSave } = useSavedConcerts(session?.user.id ?? null);
+  const [selectedConcert, setSelectedConcert] = useState<Concert | null>(null);
 
   return (
     <ScreenScaffold title="EDM Concerts" subtitle="Upcoming shows in NYC.">
@@ -32,8 +35,8 @@ export default function ListScreen() {
       />
 
       {isLoading && (
-        <ThemedView style={styles.centerState}>
-          <ActivityIndicator />
+        <ThemedView style={styles.list}>
+          <SkeletonCardRow />
         </ThemedView>
       )}
 
@@ -59,21 +62,26 @@ export default function ListScreen() {
           <ConcertListCard
             key={concert.id}
             concert={concert}
+            onPress={() => setSelectedConcert(concert)}
             isSaved={session ? isSaved(concert.id) : undefined}
             isSavePending={session ? isSavePending(concert.id) : undefined}
             onToggleSave={session ? () => toggleSave(concert) : undefined}
           />
         ))}
       </ThemedView>
+
+      <ConcertDetailSheet
+        concert={selectedConcert}
+        onClose={() => setSelectedConcert(null)}
+        isSaved={selectedConcert && session ? isSaved(selectedConcert.id) : undefined}
+        isSavePending={selectedConcert && session ? isSavePending(selectedConcert.id) : undefined}
+        onToggleSave={selectedConcert && session ? () => toggleSave(selectedConcert) : undefined}
+      />
     </ScreenScaffold>
   );
 }
 
 const styles = StyleSheet.create({
-  centerState: {
-    paddingVertical: Spacing.six,
-    alignItems: 'center',
-  },
   messageCard: {
     gap: Spacing.two,
     marginHorizontal: Spacing.four,
@@ -83,7 +91,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   list: {
-    gap: Spacing.two,
+    gap: Spacing.three,
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.four,
   },

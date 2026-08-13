@@ -1,62 +1,146 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
+import { Link } from 'expo-router';
+import { useState } from 'react';
+import { NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
+import { ConcertDetailSheet } from '@/components/concert-detail-sheet';
+import { ConcertListCard } from '@/components/concert-list-card';
+import { SkeletonCard } from '@/components/skeleton-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
+import { useAuth } from '@/hooks/use-auth';
+import { useEdmConcerts } from '@/hooks/use-edm-concerts';
+import { useProfile } from '@/hooks/use-profile';
+import { useSavedConcerts } from '@/hooks/use-saved-concerts';
+import { useTheme } from '@/hooks/use-theme';
+import { CITIES, Concert } from '@/types/concert';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+const FEATURED_CARD_WIDTH = 260;
+const FEATURED_CARD_GAP = Spacing.three;
 
 export default function HomeScreen() {
+  const theme = useTheme();
+  const { session } = useAuth();
+  const { profile } = useProfile(session?.user.id ?? null);
+  const { concerts, isLoading } = useEdmConcerts(CITIES[0]);
+  const { isSaved, isSavePending, toggleSave } = useSavedConcerts(session?.user.id ?? null);
+  const featured = concerts.slice(0, 6);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [selectedConcert, setSelectedConcert] = useState<Concert | null>(null);
+
+  function handleScrollEnd(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    const index = Math.round(
+      event.nativeEvent.contentOffset.x / (FEATURED_CARD_WIDTH + FEATURED_CARD_GAP),
+    );
+    setActiveIndex(Math.max(0, Math.min(index, featured.length - 1)));
+  }
+
+  const greetingName = profile?.displayName || session?.user.email?.split('@')[0];
+
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}>
+          <View style={styles.header}>
+            <ThemedText type="eyebrow" themeColor="textSecondary">
+              Music Map
+            </ThemedText>
+            <ThemedText type="title" style={styles.greeting}>
+              {greetingName ? `Make plans, ${greetingName}` : 'Make plans'}
+            </ThemedText>
+          </View>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+          <View style={styles.quickLinks}>
+            <Link href="/explore" asChild>
+              <Pressable style={({ pressed }) => pressed && styles.pressed}>
+                <View style={[styles.quickLinkPill, { backgroundColor: theme.accent }]}>
+                  <ThemedText type="smallBold" style={{ color: theme.accentInk }}>
+                    Open Map
+                  </ThemedText>
+                </View>
+              </Pressable>
+            </Link>
+            <Link href="/list" asChild>
+              <Pressable style={({ pressed }) => pressed && styles.pressed}>
+                <ThemedView type="backgroundElement" style={styles.quickLinkPill}>
+                  <ThemedText type="smallBold">See Full List</ThemedText>
+                </ThemedView>
+              </Pressable>
+            </Link>
+          </View>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+          <View style={styles.featuredSection}>
+            <ThemedText type="eyebrow" themeColor="textSecondary" style={styles.sectionHeading}>
+              Upcoming in NYC
+            </ThemedText>
 
-        {Platform.OS === 'web' && <WebBadge />}
+            {isLoading ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.carouselContent}>
+                <SkeletonCard width={FEATURED_CARD_WIDTH} />
+                <SkeletonCard width={FEATURED_CARD_WIDTH} />
+              </ScrollView>
+            ) : featured.length === 0 ? (
+              <ThemedText type="small" themeColor="textSecondary" style={styles.emptyText}>
+                No upcoming EDM shows found right now.
+              </ThemedText>
+            ) : (
+              <>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  snapToInterval={FEATURED_CARD_WIDTH + FEATURED_CARD_GAP}
+                  decelerationRate="fast"
+                  onMomentumScrollEnd={handleScrollEnd}
+                  contentContainerStyle={styles.carouselContent}>
+                  {featured.map((concert) => (
+                    <ConcertListCard
+                      key={concert.id}
+                      concert={concert}
+                      width={FEATURED_CARD_WIDTH}
+                      onPress={() => setSelectedConcert(concert)}
+                      isSaved={session ? isSaved(concert.id) : undefined}
+                      isSavePending={session ? isSavePending(concert.id) : undefined}
+                      onToggleSave={session ? () => toggleSave(concert) : undefined}
+                    />
+                  ))}
+                </ScrollView>
+                <View style={styles.dots}>
+                  {featured.map((concert, index) => (
+                    <View
+                      key={concert.id}
+                      style={[
+                        styles.dot,
+                        {
+                          backgroundColor:
+                            index === activeIndex ? theme.accent : theme.backgroundElement,
+                        },
+                      ]}
+                    />
+                  ))}
+                </View>
+              </>
+            )}
+          </View>
+
+          {Platform.OS === 'web' && <WebBadge />}
+        </ScrollView>
       </SafeAreaView>
+
+      <ConcertDetailSheet
+        concert={selectedConcert}
+        onClose={() => setSelectedConcert(null)}
+        isSaved={selectedConcert && session ? isSaved(selectedConcert.id) : undefined}
+        isSavePending={selectedConcert && session ? isSavePending(selectedConcert.id) : undefined}
+        onToggleSave={selectedConcert && session ? () => toggleSave(selectedConcert) : undefined}
+      />
     </ThemedView>
   );
 }
@@ -64,35 +148,69 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
   },
   safeArea: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
   },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  scrollView: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
   },
-  title: {
-    textAlign: 'center',
+  scrollContent: {
+    paddingBottom: BottomTabInset + Spacing.four,
+    alignItems: 'center',
   },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
+  header: {
     alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+    maxWidth: MaxContentWidth,
+    gap: Spacing.one,
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.four,
+  },
+  greeting: {
+    fontSize: 30,
+    lineHeight: 34,
+  },
+  pressed: {
+    opacity: 0.75,
+  },
+  quickLinks: {
+    alignSelf: 'stretch',
+    maxWidth: MaxContentWidth,
+    flexDirection: 'row',
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.four,
+  },
+  quickLinkPill: {
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.two,
+    borderRadius: Radius.pill,
+  },
+  featuredSection: {
+    alignSelf: 'stretch',
+    maxWidth: MaxContentWidth,
+    gap: Spacing.two,
+    paddingTop: Spacing.five,
+  },
+  sectionHeading: {
+    paddingHorizontal: Spacing.four,
+  },
+  carouselContent: {
+    gap: FEATURED_CARD_GAP,
+    paddingHorizontal: Spacing.four,
+  },
+  emptyText: {
+    paddingHorizontal: Spacing.four,
+  },
+  dots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: Spacing.one,
+    paddingTop: Spacing.one,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
 });

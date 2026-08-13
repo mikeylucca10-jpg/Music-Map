@@ -53,16 +53,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   container: {
+    width: '100%',
     maxWidth: MaxContentWidth,
-    flexGrow: 1,
   },
   titleContainer: {
-    gap: Spacing.three,
-    alignItems: 'center',
+    gap: Spacing.one,
+    alignSelf: 'stretch',
     paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.six,
+    paddingTop: Spacing.four,
+    paddingBottom: Spacing.three,
   },
-  centerText: {
-    textAlign: 'center',
-  },
+  centerText: {},
 });

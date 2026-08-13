@@ -1,27 +1,28 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * This app is styled like a dark-first live-event app (TIXR/CrowdVolt-style):
+ * near-black surfaces, image-forward cards, one accent color used sparingly.
+ * `light` and `dark` intentionally share the same dark palette below — this
+ * is a dark-only app by design, not an adaptive light/dark one.
  */
 
 import '@/global.css';
 
 import { Platform } from 'react-native';
 
+const palette = {
+  text: '#F5F5F7',
+  background: '#0A0A0A',
+  backgroundElement: '#161616',
+  backgroundSelected: '#242226',
+  textSecondary: '#9B9BA3',
+  accent: '#8B5CF6',
+  accentInk: '#FFFFFF',
+  border: 'rgba(255, 255, 255, 0.08)',
+} as const;
+
 export const Colors = {
-  light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
-  },
-  dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
-  },
+  light: palette,
+  dark: palette,
 } as const;
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
@@ -61,5 +62,13 @@ export const Spacing = {
   six: 64,
 } as const;
 
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
+export const BottomTabInset = Platform.select({ ios: 50, android: 80, web: 70 }) ?? 0;
 export const MaxContentWidth = 800;
+
+// One radius scale used everywhere so cards, rows, and pill buttons read as
+// one consistent system rather than several ad hoc roundings.
+export const Radius = {
+  card: 16,
+  large: 24,
+  pill: 999,
+} as const;

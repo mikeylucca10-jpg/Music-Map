@@ -19,10 +19,25 @@ export type Concert = {
   priceCurrency?: string;
 };
 
-export type SavedConcert = Pick<
+// Shared shape for anything that just displays/links a concert (cards, the
+// detail sheet, ticket-source links) without needing map coordinates or the
+// filter-only fields (isFree/is21Plus/source).
+export type ConcertSummary = Pick<
   Concert,
-  'id' | 'name' | 'url' | 'startDateTime' | 'venueName' | 'address'
+  | 'id'
+  | 'name'
+  | 'artist'
+  | 'url'
+  | 'startDateTime'
+  | 'venueName'
+  | 'address'
+  | 'imageUrl'
+  | 'priceMin'
+  | 'priceMax'
+  | 'priceCurrency'
 >;
+
+export type SavedConcert = ConcertSummary;
 
 export type City = {
   id: string;

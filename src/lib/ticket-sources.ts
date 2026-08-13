@@ -1,4 +1,4 @@
-import { Concert } from '@/types/concert';
+import { ConcertSummary } from '@/types/concert';
 
 export type TicketSource = {
   id: string;
@@ -39,7 +39,7 @@ function mockPriceLabel(seed: string): string {
   return `~${currencyFormatter.format(min)}–${currencyFormatter.format(max)}`;
 }
 
-function searchTerm(concert: Concert) {
+function searchTerm(concert: ConcertSummary) {
   return `${concert.artist ?? concert.name} ${concert.venueName}`;
 }
 
@@ -49,12 +49,12 @@ function searchTerm(concert: Concert) {
 // dead or wrong page. A domain-scoped web search is guaranteed to resolve to
 // something real. If you confirm an actual direct search URL for one of
 // these later, swap it in here.
-function scopedWebSearchUrl(domain: string, concert: Concert) {
+function scopedWebSearchUrl(domain: string, concert: ConcertSummary) {
   const query = encodeURIComponent(`site:${domain} ${searchTerm(concert)}`);
   return `https://www.google.com/search?q=${query}`;
 }
 
-export function getTicketSources(concert: Concert): TicketSource[] {
+export function getTicketSources(concert: ConcertSummary): TicketSource[] {
   const query = encodeURIComponent(searchTerm(concert));
 
   return [

@@ -1,17 +1,20 @@
+import { Image } from 'expo-image';
 import { Href } from 'expo-router';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ExternalLink } from '@/components/external-link';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { formatConcertDateTime } from '@/lib/format-date';
 import { getTicketSources, TicketSource } from '@/lib/ticket-sources';
-import { Concert } from '@/types/concert';
+import { ConcertSummary } from '@/types/concert';
 
 type ConcertDetailSheetProps = {
-  concert: Concert | null;
+  concert: ConcertSummary | null;
   onClose: () => void;
   isSaved?: boolean;
   isSavePending?: boolean;
@@ -26,16 +29,31 @@ export function ConcertDetailSheet({
   onToggleSave,
 }: ConcertDetailSheetProps) {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
+
+  function handleToggleSave() {
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onToggleSave?.();
+  }
 
   return (
     <Modal visible={concert !== null} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
       {concert && (
         <ThemedView
-          type="background"
+          type="backgroundElement"
           style={[styles.sheet, { paddingBottom: insets.bottom + Spacing.four }]}>
           <View style={styles.grabber} />
           <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            {concert.imageUrl && (
+              <Image
+                source={{ uri: concert.imageUrl }}
+                style={styles.heroImage}
+                contentFit="cover"
+                transition={150}
+              />
+            )}
+
             <View style={styles.titleRow}>
               <View style={styles.titleColumn}>
                 <ThemedText type="subtitle" style={styles.title}>
@@ -49,11 +67,11 @@ export function ConcertDetailSheet({
               </View>
               {onToggleSave && (
                 <Pressable
-                  onPress={onToggleSave}
+                  onPress={handleToggleSave}
                   disabled={isSavePending}
                   hitSlop={8}
                   style={({ pressed }) => (pressed || isSavePending) && styles.pressed}>
-                  <ThemedText style={isSaved ? styles.heartSaved : styles.heart}>
+                  <ThemedText style={[styles.heart, isSaved && { color: theme.accent }]}>
                     {isSaved ? '♥' : '♡'}
                   </ThemedText>
                 </Pressable>
@@ -70,7 +88,7 @@ export function ConcertDetailSheet({
               </ThemedText>
             </View>
 
-            <ThemedText type="smallBold" style={styles.sectionHeading}>
+            <ThemedText type="eyebrow" themeColor="textSecondary" style={styles.sectionHeading}>
               Buy Tickets
             </ThemedText>
             <View style={styles.sourceList}>
@@ -89,7 +107,7 @@ function TicketSourceRow({ source }: { source: TicketSource }) {
   return (
     <ExternalLink href={source.url as Href & string} asChild>
       <Pressable style={({ pressed }) => pressed && styles.pressed}>
-        <ThemedView type="backgroundElement" style={styles.sourceRow}>
+        <ThemedView type="backgroundSelected" style={styles.sourceRow}>
           <View style={[styles.monogram, { backgroundColor: source.color }]}>
             <ThemedText style={styles.monogramText}>{source.monogram}</ThemedText>
           </View>
@@ -112,32 +130,38 @@ function TicketSourceRow({ source }: { source: TicketSource }) {
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
   },
   sheet: {
-    borderTopLeftRadius: Spacing.four,
-    borderTopRightRadius: Spacing.four,
-    maxHeight: '80%',
+    borderTopLeftRadius: Radius.large,
+    borderTopRightRadius: Radius.large,
+    maxHeight: '85%',
+    overflow: 'hidden',
   },
   grabber: {
     alignSelf: 'center',
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(128, 128, 128, 0.4)',
+    backgroundColor: 'rgba(255, 255, 255, 0.24)',
     marginTop: Spacing.two,
     marginBottom: Spacing.one,
   },
   content: {
     gap: Spacing.three,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.two,
+    paddingBottom: Spacing.two,
+  },
+  heroImage: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    backgroundColor: '#000000',
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: Spacing.two,
+    paddingHorizontal: Spacing.four,
   },
   titleColumn: {
     flex: 1,
@@ -145,40 +169,38 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 22,
-    lineHeight: 28,
+    lineHeight: 26,
   },
   heart: {
     fontSize: 26,
     lineHeight: 28,
-  },
-  heartSaved: {
-    fontSize: 26,
-    lineHeight: 28,
-    color: '#e5484d',
   },
   pressed: {
     opacity: 0.7,
   },
   metaRows: {
     gap: Spacing.one,
+    paddingHorizontal: Spacing.four,
   },
   sectionHeading: {
     marginTop: Spacing.one,
+    paddingHorizontal: Spacing.four,
   },
   sourceList: {
     gap: Spacing.two,
+    paddingHorizontal: Spacing.four,
   },
   sourceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
-    borderRadius: Spacing.three,
+    borderRadius: Radius.card,
     padding: Spacing.three,
   },
   monogram: {
     width: 40,
     height: 40,
-    borderRadius: Spacing.two,
+    borderRadius: Radius.card - 4,
     alignItems: 'center',
     justifyContent: 'center',
   },

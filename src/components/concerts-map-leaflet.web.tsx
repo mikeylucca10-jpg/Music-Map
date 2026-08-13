@@ -3,11 +3,12 @@ import 'leaflet/dist/leaflet.css';
 import { useEffect } from 'react';
 import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
 
+import { Colors } from '@/constants/theme';
 import { City, Concert } from '@/types/concert';
 
 const markerIcon = L.divIcon({
   className: 'concert-marker',
-  html: '<div style="width:16px;height:16px;border-radius:8px;background:#3c87f7;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4);"></div>',
+  html: `<div style="width:16px;height:16px;border-radius:8px;background:${Colors.dark.accent};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4);"></div>`,
   iconSize: [16, 16],
   iconAnchor: [8, 8],
 });

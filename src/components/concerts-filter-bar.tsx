@@ -3,7 +3,8 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { Category } from '@/hooks/use-concerts-filters';
 import { City } from '@/types/concert';
 
@@ -25,6 +26,7 @@ export function ConcertsFilterBar({
   cities,
 }: ConcertsFilterBarProps) {
   const [cityMenuOpen, setCityMenuOpen] = useState(false);
+  const theme = useTheme();
 
   return (
     <View style={styles.container}>
@@ -70,9 +72,10 @@ export function ConcertsFilterBar({
               onPress={() => onCategoryChange(item)}
               style={({ pressed }) => pressed && styles.pressed}>
               <ThemedView
-                type={selected ? 'backgroundSelected' : 'backgroundElement'}
-                style={styles.chip}>
-                <ThemedText type="small" themeColor={selected ? 'text' : 'textSecondary'}>
+                style={[styles.chip, { backgroundColor: selected ? theme.accent : theme.backgroundElement }]}>
+                <ThemedText
+                  type="smallBold"
+                  style={{ color: selected ? theme.accentInk : theme.textSecondary }}>
                   {item}
                 </ThemedText>
               </ThemedView>
@@ -95,13 +98,13 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
-    borderRadius: Spacing.five,
+    borderRadius: Radius.pill,
   },
   cityMenu: {
     position: 'absolute',
     top: 44,
     left: 0,
-    borderRadius: Spacing.three,
+    borderRadius: Radius.card,
     paddingVertical: Spacing.one,
     minWidth: 160,
     zIndex: 10,
@@ -117,6 +120,6 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.one,
-    borderRadius: Spacing.five,
+    borderRadius: Radius.pill,
   },
 });
