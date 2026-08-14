@@ -18,6 +18,10 @@ type ConcertListCardProps = {
   onToggleSave?: () => void;
   /** Fixed width — use inside a horizontal carousel (e.g. Home's featured row). */
   width?: number;
+  /** Precomputed (not raw coordinates — ConcertSummary intentionally omits
+   * those) e.g. "2.3 mi away", shown only when the viewer has granted
+   * location access. */
+  distanceLabel?: string;
 };
 
 export function ConcertListCard({
@@ -27,6 +31,7 @@ export function ConcertListCard({
   isSavePending,
   onToggleSave,
   width,
+  distanceLabel,
 }: ConcertListCardProps) {
   const theme = useTheme();
 
@@ -55,6 +60,7 @@ export function ConcertListCard({
         </ThemedText>
         <ThemedText type="small" style={styles.overlayMeta} numberOfLines={1}>
           {formatConcertDateTime(concert.startDateTime)} · {concert.venueName}
+          {distanceLabel ? ` · ${distanceLabel}` : ''}
         </ThemedText>
       </View>
       {onToggleSave && (
@@ -93,6 +99,7 @@ export function ConcertListCard({
       </ThemedText>
       <ThemedText type="small" themeColor="textSecondary">
         {concert.venueName}
+        {distanceLabel ? ` · ${distanceLabel}` : ''}
       </ThemedText>
     </ThemedView>
   );

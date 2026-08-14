@@ -13,10 +13,20 @@ const markerIcon = L.divIcon({
   iconAnchor: [8, 8],
 });
 
+// Blue, distinct from the violet accent used for concert pins — matches the
+// conventional "you are here" dot look native maps use for isMyLocationEnabled.
+const userLocationIcon = L.divIcon({
+  className: 'user-location-marker',
+  html: `<div style="width:14px;height:14px;border-radius:7px;background:#4285F4;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.5);"></div>`,
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
+});
+
 type LeafletConcertsMapProps = {
   concerts: Concert[];
   city: City;
   onSelectConcert: (concert: Concert) => void;
+  userLocation?: { latitude: number; longitude: number } | null;
 };
 
 function RecenterOnCityChange({ center }: { center: [number, number] }) {
@@ -31,11 +41,23 @@ function RecenterOnCityChange({ center }: { center: [number, number] }) {
   return null;
 }
 
-export function LeafletConcertsMap({ concerts, city, onSelectConcert }: LeafletConcertsMapProps) {
+export function LeafletConcertsMap({
+  concerts,
+  city,
+  onSelectConcert,
+  userLocation,
+}: LeafletConcertsMapProps) {
   const center: [number, number] = [city.mapCenter.latitude, city.mapCenter.longitude];
 
   return (
-    <MapContainer center={center} zoom={11} style={{ height: '100%', width: '100%' }}>
+    <MapContainer
+      center={center}
+      zoom={11}
+      // Leaflet's default zoom control renders +/- buttons top-left by
+      // default — the same corner the filter bar's pills overlay, and
+      // redundant since scroll/pinch zoom already works.
+      zoomControl={false}
+      style={{ height: '100%', width: '100%' }}>
       <RecenterOnCityChange center={center} />
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -49,6 +71,13 @@ export function LeafletConcertsMap({ concerts, city, onSelectConcert }: LeafletC
           eventHandlers={{ click: () => onSelectConcert(concert) }}
         />
       ))}
+      {userLocation && (
+        <Marker
+          position={[userLocation.latitude, userLocation.longitude]}
+          icon={userLocationIcon}
+          interactive={false}
+        />
+      )}
     </MapContainer>
   );
 }

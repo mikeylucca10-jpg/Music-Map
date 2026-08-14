@@ -12,6 +12,7 @@ type ConcertsMapProps = {
   concerts: Concert[];
   city: City;
   onSelectConcert: (concert: Concert) => void;
+  userLocation?: { latitude: number; longitude: number } | null;
 };
 
 export function ConcertsMap(props: ConcertsMapProps) {

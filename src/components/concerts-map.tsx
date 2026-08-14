@@ -17,9 +17,10 @@ type ConcertsMapProps = {
   concerts: Concert[];
   city: City;
   onSelectConcert: (concert: Concert) => void;
+  userLocation?: { latitude: number; longitude: number } | null;
 };
 
-export function ConcertsMap({ concerts, city, onSelectConcert }: ConcertsMapProps) {
+export function ConcertsMap({ concerts, city, onSelectConcert, userLocation }: ConcertsMapProps) {
   if (Platform.OS === 'android' && !isAndroidMapsConfigured) {
     return (
       <ThemedView style={styles.placeholderContainer}>
@@ -50,6 +51,12 @@ export function ConcertsMap({ concerts, city, onSelectConcert }: ConcertsMapProp
     if (concert) onSelectConcert(concert);
   }
 
+  // isMyLocationEnabled draws the native "blue dot" using the OS's own
+  // location system — gated on already having coords from useUserLocation
+  // so it only turns on once our own soft-ask flow has actually granted
+  // permission, rather than expo-maps triggering its own separate prompt.
+  const properties = { isMyLocationEnabled: Boolean(userLocation) };
+
   if (Platform.OS === 'android') {
     return (
       <GoogleMaps.View
@@ -57,6 +64,7 @@ export function ConcertsMap({ concerts, city, onSelectConcert }: ConcertsMapProp
         cameraPosition={{ coordinates: city.mapCenter, zoom: 11 }}
         markers={markers}
         onMarkerClick={handleMarkerClick}
+        properties={properties}
       />
     );
   }
@@ -67,6 +75,7 @@ export function ConcertsMap({ concerts, city, onSelectConcert }: ConcertsMapProp
       cameraPosition={{ coordinates: city.mapCenter, zoom: 11 }}
       markers={markers}
       onMarkerClick={handleMarkerClick}
+      properties={properties}
     />
   );
 }

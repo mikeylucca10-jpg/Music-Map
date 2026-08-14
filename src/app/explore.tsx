@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ConcertDetailSheet } from '@/components/concert-detail-sheet';
 import { ConcertsFilterBar } from '@/components/concerts-filter-bar';
 import { ConcertsMap } from '@/components/concerts-map';
+import { LocationPermissionPrompt } from '@/components/location-permission-prompt';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
@@ -15,23 +16,64 @@ import { useEdmConcerts } from '@/hooks/use-edm-concerts';
 import { useProfile } from '@/hooks/use-profile';
 import { useSavedConcerts } from '@/hooks/use-saved-concerts';
 import { useTheme } from '@/hooks/use-theme';
+import { useUserLocation } from '@/hooks/use-user-location';
+import { getDirectionsUrl } from '@/lib/directions';
+import { distanceLabelFor } from '@/lib/geo';
 import { CITIES, Concert } from '@/types/concert';
 
 export default function ExploreScreen() {
   const safeAreaInsets = useSafeAreaInsets();
   const [city, setCity] = useState(CITIES[0]);
   const { concerts, isLoading, error, refresh } = useEdmConcerts(city);
-  const { category, setCategory, categories, filteredConcerts } = useConcertsFilters(concerts);
+  const {
+    category,
+    setCategory,
+    categories,
+    selectedBoroughId,
+    setBoroughId,
+    selectedDateKey,
+    setDateKey,
+    weekLabel,
+    goToPrevWeek,
+    goToNextWeek,
+    canGoPrevWeek,
+    canGoNextWeek,
+    weekNavRelevant,
+    setWeekOffset,
+    filteredConcerts,
+  } = useConcertsFilters(concerts, city);
   const [selectedConcert, setSelectedConcert] = useState<Concert | null>(null);
   const { session } = useAuth();
   const { profile } = useProfile(session?.user.id ?? null);
   useApplyDefaultCity(profile, setCity);
   const { isSaved, isSavePending, toggleSave } = useSavedConcerts(session?.user.id ?? null);
   const theme = useTheme();
+  const {
+    status: locationStatus,
+    coords: userLocation,
+    hasPrompted: hasPromptedForLocation,
+    requestLocation,
+    declineLocation,
+  } = useUserLocation();
 
   return (
     <ThemedView style={styles.container}>
-      <ConcertsMap concerts={filteredConcerts} city={city} onSelectConcert={setSelectedConcert} />
+      <ConcertsMap
+        concerts={filteredConcerts}
+        city={city}
+        onSelectConcert={setSelectedConcert}
+        userLocation={userLocation}
+      />
+
+      {locationStatus !== 'granted' && hasPromptedForLocation === true && (
+        <Pressable
+          onPress={requestLocation}
+          style={({ pressed }) => [styles.locationButton, pressed && styles.pressed]}>
+          <ThemedView type="backgroundElement" style={styles.locationPill}>
+            <ThemedText type="smallBold">📍 Show My Location</ThemedText>
+          </ThemedView>
+        </Pressable>
+      )}
 
       <View style={[styles.overlayTop, { paddingTop: safeAreaInsets.top + Spacing.two }]}>
         <ConcertsFilterBar
@@ -41,6 +83,17 @@ export default function ExploreScreen() {
           city={city}
           onCityChange={setCity}
           cities={CITIES}
+          selectedBoroughId={selectedBoroughId}
+          onBoroughChange={setBoroughId}
+          selectedDateKey={selectedDateKey}
+          onDateChange={setDateKey}
+          weekLabel={weekLabel}
+          onPrevWeek={goToPrevWeek}
+          onNextWeek={goToNextWeek}
+          canGoPrevWeek={canGoPrevWeek}
+          canGoNextWeek={canGoNextWeek}
+          weekNavRelevant={weekNavRelevant}
+          setWeekOffset={setWeekOffset}
         />
       </View>
 
@@ -73,6 +126,14 @@ export default function ExploreScreen() {
         onToggleSave={
           selectedConcert && session ? () => toggleSave(selectedConcert) : undefined
         }
+        distanceLabel={selectedConcert ? distanceLabelFor(userLocation, selectedConcert) : undefined}
+        directionsUrl={selectedConcert ? getDirectionsUrl(selectedConcert) : undefined}
+      />
+
+      <LocationPermissionPrompt
+        visible={hasPromptedForLocation === false}
+        onAllow={requestLocation}
+        onDeny={declineLocation}
       />
     </ThemedView>
   );
@@ -110,5 +171,19 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     alignItems: 'center',
     maxWidth: 360,
+  },
+  pressed: {
+    opacity: 0.75,
+  },
+  locationButton: {
+    position: 'absolute',
+    right: Spacing.three,
+    bottom: Spacing.four,
+    zIndex: 1100,
+  },
+  locationPill: {
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: Radius.pill,
   },
 });

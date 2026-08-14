@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { DatePickerSheet } from '@/components/date-picker-sheet';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
 import { Category } from '@/hooks/use-concerts-filters';
+import { formatDateKeyLabel, getNycDateKey } from '@/lib/format-date';
 import { City } from '@/types/concert';
 
 type ConcertsFilterBarProps = {
@@ -15,6 +16,17 @@ type ConcertsFilterBarProps = {
   city: City;
   onCityChange: (city: City) => void;
   cities: City[];
+  selectedBoroughId?: string | null;
+  onBoroughChange?: (boroughId: string | null) => void;
+  selectedDateKey?: string | null;
+  onDateChange?: (dateKey: string | null) => void;
+  weekLabel?: string;
+  onPrevWeek?: () => void;
+  onNextWeek?: () => void;
+  canGoPrevWeek?: boolean;
+  canGoNextWeek?: boolean;
+  weekNavRelevant?: boolean;
+  setWeekOffset?: (offset: number) => void;
 };
 
 export function ConcertsFilterBar({
@@ -24,65 +36,177 @@ export function ConcertsFilterBar({
   city,
   onCityChange,
   cities,
+  selectedBoroughId = null,
+  onBoroughChange,
+  selectedDateKey = null,
+  onDateChange,
+  weekLabel,
+  onPrevWeek,
+  onNextWeek,
+  canGoPrevWeek = false,
+  canGoNextWeek = false,
+  weekNavRelevant = true,
+  setWeekOffset,
 }: ConcertsFilterBarProps) {
   const [cityMenuOpen, setCityMenuOpen] = useState(false);
-  const theme = useTheme();
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [filtersMenuOpen, setFiltersMenuOpen] = useState(false);
+  const selectedDateLabel = formatDateKeyLabel(selectedDateKey ?? getNycDateKey(new Date()));
+  const selectedBorough = city.boroughs?.find((borough) => borough.id === selectedBoroughId);
+  const cityPillLabel = selectedBorough?.label ?? city.label;
+
+  function selectCity(item: City) {
+    onCityChange(item);
+    onBoroughChange?.(null);
+    setCityMenuOpen(false);
+  }
+
+  function selectBorough(item: City, boroughId: string) {
+    onCityChange(item);
+    onBoroughChange?.(boroughId);
+    setCityMenuOpen(false);
+  }
 
   return (
     <View style={styles.container}>
-      <View style={styles.cityWrapper}>
-        <Pressable
-          onPress={() => setCityMenuOpen((open) => !open)}
-          style={({ pressed }) => pressed && styles.pressed}>
-          <ThemedView type="backgroundElement" style={styles.cityPill}>
-            <ThemedText type="smallBold">{city.label} ▾</ThemedText>
-          </ThemedView>
-        </Pressable>
+      <View style={styles.pillsRow}>
+        <View style={styles.pillWrapper}>
+          <Pressable
+            onPress={() => setCityMenuOpen((open) => !open)}
+            style={({ pressed }) => pressed && styles.pressed}>
+            <ThemedView type="backgroundElement" style={styles.cityPill}>
+              <ThemedText type="smallBold">{cityPillLabel} ▾</ThemedText>
+            </ThemedView>
+          </Pressable>
 
-        {cityMenuOpen && (
-          <ThemedView type="backgroundElement" style={styles.cityMenu}>
-            {cities.map((item) => (
-              <Pressable
-                key={item.id}
-                onPress={() => {
-                  onCityChange(item);
-                  setCityMenuOpen(false);
-                }}
-                style={({ pressed }) => [styles.cityMenuItem, pressed && styles.pressed]}>
-                <ThemedText
-                  type={item.id === city.id ? 'smallBold' : 'small'}
-                  themeColor={item.id === city.id ? 'text' : 'textSecondary'}>
-                  {item.label}
-                </ThemedText>
-              </Pressable>
-            ))}
-          </ThemedView>
-        )}
-      </View>
+          {cityMenuOpen && (
+            <ThemedView type="backgroundElement" style={styles.cityMenu}>
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {cities.map((item) => {
+                  const isActiveCity = item.id === city.id;
+                  return (
+                    <View key={item.id}>
+                      <Pressable
+                        onPress={() => selectCity(item)}
+                        style={({ pressed }) => [styles.cityMenuItem, pressed && styles.pressed]}>
+                        <ThemedText
+                          type={isActiveCity && !selectedBorough ? 'smallBold' : 'small'}
+                          themeColor={isActiveCity && !selectedBorough ? 'text' : 'textSecondary'}>
+                          {item.label}
+                        </ThemedText>
+                      </Pressable>
+                      {item.boroughs?.map((borough) => {
+                        const isSelectedBorough = isActiveCity && borough.id === selectedBoroughId;
+                        return (
+                          <Pressable
+                            key={borough.id}
+                            onPress={() => selectBorough(item, borough.id)}
+                            style={({ pressed }) => [styles.boroughMenuItem, pressed && styles.pressed]}>
+                            <ThemedText
+                              type={isSelectedBorough ? 'smallBold' : 'small'}
+                              themeColor={isSelectedBorough ? 'text' : 'textSecondary'}>
+                              {borough.label}
+                            </ThemedText>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            </ThemedView>
+          )}
+        </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipsRow}>
-        {categories.map((item) => {
-          const selected = item === category;
-          return (
+        {onDateChange && (
+          <View style={styles.pillWrapper}>
             <Pressable
-              key={item}
-              onPress={() => onCategoryChange(item)}
+              onPress={() => setDatePickerOpen(true)}
               style={({ pressed }) => pressed && styles.pressed}>
-              <ThemedView
-                style={[styles.chip, { backgroundColor: selected ? theme.accent : theme.backgroundElement }]}>
-                <ThemedText
-                  type="smallBold"
-                  style={{ color: selected ? theme.accentInk : theme.textSecondary }}>
-                  {item}
-                </ThemedText>
+              <ThemedView type="backgroundElement" style={styles.cityPill}>
+                <ThemedText type="smallBold">{selectedDateLabel} ▾</ThemedText>
               </ThemedView>
             </Pressable>
-          );
-        })}
-      </ScrollView>
+
+            <DatePickerSheet
+              visible={datePickerOpen}
+              selectedDateKey={selectedDateKey}
+              onApply={onDateChange}
+              onClose={() => setDatePickerOpen(false)}
+              onSelectThisWeek={setWeekOffset ? () => setWeekOffset(0) : undefined}
+              onSelectNextWeek={onNextWeek}
+              weekLabel={weekLabel}
+            />
+          </View>
+        )}
+
+        <View style={styles.pillWrapper}>
+          <Pressable
+            onPress={() => setFiltersMenuOpen((open) => !open)}
+            style={({ pressed }) => pressed && styles.pressed}>
+            <ThemedView type="backgroundElement" style={styles.cityPill}>
+              <ThemedText type="smallBold">Filters ▾</ThemedText>
+            </ThemedView>
+          </Pressable>
+
+          {filtersMenuOpen && (
+            <ThemedView type="backgroundElement" style={styles.filtersMenu}>
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {categories.map((item) => {
+                  const selected = item === category;
+                  return (
+                    <Pressable
+                      key={item}
+                      onPress={() => {
+                        onCategoryChange(item);
+                        setFiltersMenuOpen(false);
+                      }}
+                      style={({ pressed }) => [styles.cityMenuItem, pressed && styles.pressed]}>
+                      <ThemedText
+                        type={selected ? 'smallBold' : 'small'}
+                        themeColor={selected ? 'text' : 'textSecondary'}>
+                        {item}
+                      </ThemedText>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </ThemedView>
+          )}
+        </View>
+      </View>
+
+      {weekLabel && onPrevWeek && onNextWeek && weekNavRelevant && (
+        <View style={styles.weekNavRow}>
+          <Pressable
+            onPress={onPrevWeek}
+            disabled={!canGoPrevWeek}
+            hitSlop={8}
+            style={({ pressed }) => pressed && styles.pressed}>
+            <ThemedText
+              type="smallBold"
+              themeColor={canGoPrevWeek ? 'text' : 'textSecondary'}
+              style={!canGoPrevWeek && styles.disabled}>
+              ‹
+            </ThemedText>
+          </Pressable>
+          <ThemedText type="smallBold" themeColor="textSecondary">
+            {weekLabel}
+          </ThemedText>
+          <Pressable
+            onPress={onNextWeek}
+            disabled={!canGoNextWeek}
+            hitSlop={8}
+            style={({ pressed }) => pressed && styles.pressed}>
+            <ThemedText
+              type="smallBold"
+              themeColor={canGoNextWeek ? 'text' : 'textSecondary'}
+              style={!canGoNextWeek && styles.disabled}>
+              ›
+            </ThemedText>
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 }
@@ -99,10 +223,25 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.7,
   },
-  cityWrapper: {
-    // Wins the stacking tie against the chips ScrollView sibling below it
-    // (both default to z-index:0 otherwise, and DOM order would let the
-    // chips paint over the open dropdown's top edge).
+  disabled: {
+    opacity: 0.3,
+  },
+  weekNavRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.three,
+    paddingVertical: Spacing.one,
+  },
+  pillsRow: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+    // Wins the stacking tie against the weekNavRow sibling below it (both
+    // default to z-index:0 otherwise, and DOM order would let weekNavRow
+    // paint over an open dropdown's bottom edge).
+    zIndex: 1,
+  },
+  pillWrapper: {
     zIndex: 1,
   },
   cityPill: {
@@ -117,20 +256,32 @@ const styles = StyleSheet.create({
     left: 0,
     borderRadius: Radius.card,
     paddingVertical: Spacing.one,
-    minWidth: 160,
+    minWidth: 190,
+    maxHeight: 340,
     zIndex: 10,
   },
   cityMenuItem: {
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
   },
-  chipsRow: {
-    gap: Spacing.two,
+  // Nested under a city entry (e.g. New York -> Manhattan, Brooklyn, ...)
+  // rather than a separate chip row spread across the screen.
+  boroughMenuItem: {
+    paddingLeft: Spacing.five,
     paddingRight: Spacing.three,
+    paddingVertical: Spacing.one + 2,
   },
-  chip: {
-    paddingHorizontal: Spacing.three,
+  // Same look as cityMenu, but right-aligned — this is the rightmost pill,
+  // so opening from its left edge (like cityMenu does) would push the menu
+  // off-screen on a narrow phone.
+  filtersMenu: {
+    position: 'absolute',
+    top: 44,
+    right: 0,
+    borderRadius: Radius.card,
     paddingVertical: Spacing.one,
-    borderRadius: Radius.pill,
+    minWidth: 160,
+    maxHeight: 340,
+    zIndex: 10,
   },
 });

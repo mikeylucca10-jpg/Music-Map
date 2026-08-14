@@ -38,7 +38,13 @@
           "imageWidth": 76
         }
       ],
-      "expo-maps"
+      "expo-maps",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Music Map uses your location to show how far concerts are from you."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

@@ -14,12 +14,14 @@ type TicketmasterAttraction = {
   name?: string;
 };
 
+type TicketmasterImage = { url: string; width?: number; height?: number };
+
 type TicketmasterEvent = {
   id: string;
   name: string;
   url: string;
   dates?: { start?: { dateTime?: string } };
-  images?: { url: string }[];
+  images?: TicketmasterImage[];
   priceRanges?: { min?: number; max?: number; currency?: string }[];
   ageRestrictions?: { legalAgeEnforced?: boolean };
   _embedded?: { venues?: TicketmasterVenue[]; attractions?: TicketmasterAttraction[] };
@@ -28,6 +30,19 @@ type TicketmasterEvent = {
 type TicketmasterResponse = {
   _embedded?: { events?: TicketmasterEvent[] };
 };
+
+// Ticketmaster's images array isn't sorted by size — it mixes small
+// thumbnails (e.g. a 305x225 "4_3" crop) in with much larger ones (a
+// 2426x1365 "_SOURCE" original can be later in the same array), so
+// images[0] is often the lowest-quality option, not a preview/default. Pick
+// by actual pixel area instead. contentFit="cover" is used everywhere this
+// renders, so aspect ratio doesn't need to match the display container.
+function pickBestImage(images: TicketmasterImage[] | undefined): string | undefined {
+  if (!images?.length) return undefined;
+  return images.reduce((best, image) =>
+    (image.width ?? 0) * (image.height ?? 0) > (best.width ?? 0) * (best.height ?? 0) ? image : best,
+  ).url;
+}
 
 export async function fetchTicketmasterConcerts(city: City): Promise<Concert[]> {
   const apiKey = process.env.EXPO_PUBLIC_TICKETMASTER_API_KEY;
@@ -79,7 +94,7 @@ export async function fetchTicketmasterConcerts(city: City): Promise<Concert[]> 
         .join(', '),
       latitude,
       longitude,
-      imageUrl: event.images?.[0]?.url,
+      imageUrl: pickBestImage(event.images),
       isFree: priceRange?.min === 0,
       is21Plus: event.ageRestrictions?.legalAgeEnforced === true,
       priceMin: priceRange?.min,

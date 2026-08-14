@@ -15,17 +15,39 @@ import { useConcertsFilters } from '@/hooks/use-concerts-filters';
 import { useEdmConcerts } from '@/hooks/use-edm-concerts';
 import { useProfile } from '@/hooks/use-profile';
 import { useSavedConcerts } from '@/hooks/use-saved-concerts';
+import { useUserLocation } from '@/hooks/use-user-location';
+import { getDirectionsUrl } from '@/lib/directions';
+import { distanceLabelFor } from '@/lib/geo';
 import { CITIES, Concert } from '@/types/concert';
 
 export default function ListScreen() {
   const [city, setCity] = useState(CITIES[0]);
   const { concerts, isLoading, error, refresh } = useEdmConcerts(city);
-  const { category, setCategory, categories, filteredConcerts } = useConcertsFilters(concerts);
+  const {
+    category,
+    setCategory,
+    categories,
+    selectedBoroughId,
+    setBoroughId,
+    selectedDateKey,
+    setDateKey,
+    weekLabel,
+    goToPrevWeek,
+    goToNextWeek,
+    canGoPrevWeek,
+    canGoNextWeek,
+    weekNavRelevant,
+    setWeekOffset,
+    filteredConcerts,
+  } = useConcertsFilters(concerts, city);
   const { session } = useAuth();
   const { profile } = useProfile(session?.user.id ?? null);
   useApplyDefaultCity(profile, setCity);
   const { isSaved, isSavePending, toggleSave } = useSavedConcerts(session?.user.id ?? null);
   const [selectedConcert, setSelectedConcert] = useState<Concert | null>(null);
+  // Read-only here — this screen doesn't render the permission prompt (only
+  // Explore does), it just picks up the coords if already granted.
+  const { coords: userLocation } = useUserLocation();
 
   return (
     <ScreenScaffold title="EDM Concerts" subtitle={`Upcoming shows in ${city.label}.`}>
@@ -36,6 +58,17 @@ export default function ListScreen() {
         city={city}
         onCityChange={setCity}
         cities={CITIES}
+        selectedBoroughId={selectedBoroughId}
+        onBoroughChange={setBoroughId}
+        selectedDateKey={selectedDateKey}
+        onDateChange={setDateKey}
+        weekLabel={weekLabel}
+        onPrevWeek={goToPrevWeek}
+        onNextWeek={goToNextWeek}
+        canGoPrevWeek={canGoPrevWeek}
+        canGoNextWeek={canGoNextWeek}
+        weekNavRelevant={weekNavRelevant}
+        setWeekOffset={setWeekOffset}
       />
 
       {isLoading && (
@@ -70,6 +103,7 @@ export default function ListScreen() {
             isSaved={session ? isSaved(concert.id) : undefined}
             isSavePending={session ? isSavePending(concert.id) : undefined}
             onToggleSave={session ? () => toggleSave(concert) : undefined}
+            distanceLabel={distanceLabelFor(userLocation, concert)}
           />
         ))}
       </ThemedView>
@@ -80,6 +114,8 @@ export default function ListScreen() {
         isSaved={selectedConcert && session ? isSaved(selectedConcert.id) : undefined}
         isSavePending={selectedConcert && session ? isSavePending(selectedConcert.id) : undefined}
         onToggleSave={selectedConcert && session ? () => toggleSave(selectedConcert) : undefined}
+        distanceLabel={selectedConcert ? distanceLabelFor(userLocation, selectedConcert) : undefined}
+        directionsUrl={selectedConcert ? getDirectionsUrl(selectedConcert) : undefined}
       />
     </ScreenScaffold>
   );

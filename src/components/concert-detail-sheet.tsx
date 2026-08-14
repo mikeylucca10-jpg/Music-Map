@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ExternalLink } from '@/components/external-link';
@@ -19,6 +19,12 @@ type ConcertDetailSheetProps = {
   isSaved?: boolean;
   isSavePending?: boolean;
   onToggleSave?: () => void;
+  /** Precomputed, e.g. "2.3 mi away" — shown only when the viewer has
+   * granted location access. */
+  distanceLabel?: string;
+  /** Precomputed via getDirectionsUrl(concert) — not built here since that
+   * needs lat/lng, which ConcertSummary deliberately omits. */
+  directionsUrl?: string;
 };
 
 export function ConcertDetailSheet({
@@ -27,6 +33,8 @@ export function ConcertDetailSheet({
   isSaved,
   isSavePending,
   onToggleSave,
+  distanceLabel,
+  directionsUrl,
 }: ConcertDetailSheetProps) {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
@@ -82,11 +90,39 @@ export function ConcertDetailSheet({
               <ThemedText type="small" themeColor="textSecondary">
                 🗓️ {formatConcertDateTime(concert.startDateTime)}
               </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                📍 {concert.venueName}
-                {concert.address ? ` · ${concert.address}` : ''}
-              </ThemedText>
+              {directionsUrl ? (
+                <Pressable
+                  onPress={() => Linking.openURL(directionsUrl)}
+                  hitSlop={4}
+                  style={({ pressed }) => pressed && styles.pressed}>
+                  <ThemedText type="small" style={[styles.addressLink, { color: theme.accent }]}>
+                    📍 {concert.venueName}
+                    {concert.address ? ` · ${concert.address}` : ''}
+                  </ThemedText>
+                </Pressable>
+              ) : (
+                <ThemedText type="small" themeColor="textSecondary">
+                  📍 {concert.venueName}
+                  {concert.address ? ` · ${concert.address}` : ''}
+                </ThemedText>
+              )}
+              {distanceLabel && (
+                <ThemedText type="small" themeColor="textSecondary">
+                  🧭 {distanceLabel}
+                </ThemedText>
+              )}
             </View>
+
+            {directionsUrl && (
+              <Pressable
+                onPress={() => Linking.openURL(directionsUrl)}
+                style={({ pressed }) => [styles.directionsWrapper, pressed && styles.pressed]}>
+                <ThemedView type="backgroundSelected" style={styles.directionsButton}>
+                  <ThemedText type="default">🧭 Get Directions</ThemedText>
+                  <ThemedText themeColor="textSecondary">›</ThemedText>
+                </ThemedView>
+              </Pressable>
+            )}
 
             <ThemedText type="eyebrow" themeColor="textSecondary" style={styles.sectionHeading}>
               Buy Tickets
@@ -181,6 +217,21 @@ const styles = StyleSheet.create({
   metaRows: {
     gap: Spacing.one,
     paddingHorizontal: Spacing.four,
+  },
+  // Underlined, not just accent-colored — a color change alone is easy to
+  // miss as "this is tappable" versus "this is just emphasized text".
+  addressLink: {
+    textDecorationLine: 'underline',
+  },
+  directionsWrapper: {
+    paddingHorizontal: Spacing.four,
+  },
+  directionsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: Radius.card,
+    padding: Spacing.three,
   },
   sectionHeading: {
     marginTop: Spacing.one,

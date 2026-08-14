@@ -1,3 +1,6 @@
+import { NYC_BOROUGHS } from '@/data/nyc-boroughs';
+import type { MultiPolygonCoordinates } from '@/lib/geo';
+
 export type ConcertSource = 'ticketmaster' | 'edmtrain';
 
 export type Concert = {
@@ -39,6 +42,17 @@ export type ConcertSummary = Pick<
 
 export type SavedConcert = ConcertSummary;
 
+export type Borough = {
+  id: string;
+  label: string;
+  // Real GeoJSON MultiPolygon boundary (NYC Dept. of City Planning's
+  // official "Borough Boundaries" dataset, via NYC Open Data — see
+  // src/data/nyc-boroughs.ts), used with isPointInMultiPolygon (src/lib/geo.ts)
+  // to test a venue's actual coordinates against the actual borough shape,
+  // not an approximated bounding box.
+  boundary: MultiPolygonCoordinates;
+};
+
 export type City = {
   id: string;
   label: string;
@@ -52,6 +66,10 @@ export type City = {
    * Not wired in yet: only the NYC data is actually vouched for right now.
    */
   timezone: string;
+  // Sub-city areas for the filter bar's borough chips. Left undefined for
+  // cities without well-known named sub-areas (e.g. Las Vegas) — the filter
+  // bar hides the borough row entirely when this is unset.
+  boroughs?: Borough[];
 };
 
 // RA Guide-style set of major US EDM cities. Ticketmaster can query any of
@@ -68,6 +86,7 @@ export const CITIES: City[] = [
     ticketmasterCountryCode: 'US',
     mapCenter: { latitude: 40.73, longitude: -73.99 },
     timezone: 'America/New_York',
+    boroughs: NYC_BOROUGHS,
   },
   {
     id: 'la',

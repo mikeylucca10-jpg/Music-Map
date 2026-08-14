@@ -16,6 +16,9 @@ import { useEdmConcerts } from '@/hooks/use-edm-concerts';
 import { useProfile } from '@/hooks/use-profile';
 import { useSavedConcerts } from '@/hooks/use-saved-concerts';
 import { useTheme } from '@/hooks/use-theme';
+import { useUserLocation } from '@/hooks/use-user-location';
+import { getDirectionsUrl } from '@/lib/directions';
+import { distanceLabelFor } from '@/lib/geo';
 import { CITIES, Concert } from '@/types/concert';
 
 const FEATURED_CARD_WIDTH = 260;
@@ -29,6 +32,9 @@ export default function HomeScreen() {
   useApplyDefaultCity(profile, setCity);
   const { concerts, isLoading } = useEdmConcerts(city);
   const { isSaved, isSavePending, toggleSave } = useSavedConcerts(session?.user.id ?? null);
+  // Read-only here — this screen doesn't render the permission prompt (only
+  // Explore does), it just picks up the coords if already granted.
+  const { coords: userLocation } = useUserLocation();
   const featured = concerts.slice(0, 6);
   const [activeIndex, setActiveIndex] = useState(0);
   const [selectedConcert, setSelectedConcert] = useState<Concert | null>(null);
@@ -112,6 +118,7 @@ export default function HomeScreen() {
                       isSaved={session ? isSaved(concert.id) : undefined}
                       isSavePending={session ? isSavePending(concert.id) : undefined}
                       onToggleSave={session ? () => toggleSave(concert) : undefined}
+                      distanceLabel={distanceLabelFor(userLocation, concert)}
                     />
                   ))}
                 </ScrollView>
@@ -143,6 +150,8 @@ export default function HomeScreen() {
         isSaved={selectedConcert && session ? isSaved(selectedConcert.id) : undefined}
         isSavePending={selectedConcert && session ? isSavePending(selectedConcert.id) : undefined}
         onToggleSave={selectedConcert && session ? () => toggleSave(selectedConcert) : undefined}
+        distanceLabel={selectedConcert ? distanceLabelFor(userLocation, selectedConcert) : undefined}
+        directionsUrl={selectedConcert ? getDirectionsUrl(selectedConcert) : undefined}
       />
     </ThemedView>
   );

@@ -25,10 +25,12 @@ function formatRealPrice(min: number, max: number, currency: string) {
   return min === max ? fmt.format(min) : `${fmt.format(min)}–${fmt.format(max)}`;
 }
 
-// TODO(real pricing): SeatGeek, StubHub, Dice, and CrowdVolt all require
-// their own partner/affiliate API access to get real prices (SeatGeek
-// Platform API, StubHub Partner Network, Dice Partner API, CrowdVolt has no
-// public API yet). None of that is wired up — this generates a stable,
+// TODO(real pricing): SeatGeek, StubHub, Dice, CrowdVolt, TIXR, and AXS all
+// require their own partner/affiliate API access to get real prices
+// (SeatGeek Platform API, StubHub Partner Network, Dice Partner API,
+// CrowdVolt has no public API yet, TIXR's public API is organizer/Studio-
+// facing only, AXS's Platform API is gated to established distribution
+// partners). None of that is wired up — this generates a stable,
 // clearly-marked *estimate* per concert+platform so the UI has something to
 // show. Replace with a real fetch per platform once you have API access.
 function mockPriceLabel(seed: string): string {
@@ -114,6 +116,33 @@ export function getTicketSources(concert: ConcertSummary): TicketSource[] {
       isEstimate: true,
       color: '#00b3a4',
       monogram: 'CV',
+    },
+    {
+      id: 'tixr',
+      label: 'TIXR',
+      // No confirmed direct search URL — tixr.com runs DataDome bot
+      // protection and 403s non-browser requests even to the homepage, and
+      // there's no documented public search endpoint (only an org-facing
+      // Studio API). Same fallback treatment as SeatGeek/StubHub/Dice/
+      // CrowdVolt.
+      url: scopedWebSearchUrl('tixr.com', concert),
+      priceLabel: mockPriceLabel(`tixr-${concert.id}`),
+      isEstimate: true,
+      color: '#00e6b8',
+      monogram: 'TX',
+    },
+    {
+      id: 'axs',
+      label: 'AXS',
+      // Confirmed working direct search URL (unlike SeatGeek/StubHub/Dice/
+      // CrowdVolt below/above) — verified against a live axs.com/search?q=
+      // example. No public pricing API (partner/enterprise-gated), hence
+      // still an estimate.
+      url: `https://www.axs.com/search?q=${query}`,
+      priceLabel: mockPriceLabel(`axs-${concert.id}`),
+      isEstimate: true,
+      color: '#e01f3d',
+      monogram: 'AX',
     },
   ];
 }
