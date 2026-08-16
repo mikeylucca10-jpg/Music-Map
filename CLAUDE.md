@@ -25,7 +25,7 @@ This is an Expo Router (file-based routing, `src/app/`) universal app targeting 
 
 **Dual tab-bar implementation.** `expo-router/unstable-native-tabs` (`src/components/app-tabs.tsx`) doesn't render on web, so there's a parallel web-only tab bar (`src/components/app-tabs.web.tsx`) built from `expo-router/ui`'s `Tabs`/`TabList`/`TabTrigger`. Both are bottom bars with icon+label, matching each other — the web one uses `expo-blur`'s `BlurView` for a translucent/frosted background (it used to float as a pill at the *top*; that was deliberately moved to the bottom to match native and fix a real overflow bug — see the web layout gotchas below). Both must be updated together when adding/removing a tab/route.
 
-**Tabs are Home / Explore / Ask / Settings.** Home (`index.tsx`) *is* the full concert list — it previously showed a featured carousel while a separate `/list` route showed the same shows as cards, which was near-duplicate, so the list took over the landing screen and `list.tsx` was deleted. `ask.tsx` is a **placeholder**: the planned natural-language "find me shows like X" feature needs a Supabase Edge Function to hold an LLM API key server-side (an `EXPO_PUBLIC_` key ships in the client bundle, and unlike the Ticketmaster key an LLM key is directly billable), so the screen currently states plainly that it isn't built rather than faking a chat UI. When it is built, it must only recommend concerts present in the fetched listings — a model left to answer freely will invent shows that don't exist.
+**Tabs are Home / Explore / Ask / Settings.** Home (`index.tsx`) *is* the full concert list — it previously showed a featured carousel while a separate `/list` route showed the same shows as cards, which was near-duplicate, so the list took over the landing screen and `list.tsx` was deleted. `ask.tsx` is the natural-language "find me shows like X" screen — see the Ask feature section below.
 
 **Platform-split files.** Metro resolves `*.web.tsx` over `*.tsx` on web automatically. Used for: the tab bars above, `animated-icon.web.tsx`, `use-color-scheme.web.ts`, and the concerts map (`concerts-map.tsx` for native vs `concerts-map.web.tsx`/`concerts-map-leaflet.web.tsx` for web).
 
@@ -80,6 +80,26 @@ On native, granted coords flip `properties={{ isMyLocationEnabled: true }}` on `
 **A repo-wide ESLint rule** (`react-hooks/set-state-in-effect`, from `eslint-config-expo`) flags most `setState` calls inside `useEffect`, including indirect ones (e.g. calling a `useCallback`-wrapped async function that eventually sets state). Where the pattern is intentional and safe (e.g. fetch-on-mount), the established convention in this codebase is a targeted `// eslint-disable-next-line react-hooks/set-state-in-effect` with a one-line comment explaining why it's safe — see `use-cached-resource.ts` for an example — rather than restructuring around the rule.
 
 **No decorative emoji in the UI.** Meta rows, buttons, and labels use typographic hierarchy instead (in the detail sheet: the date leads at full size/contrast, the address is distinct as an accent link, the distance recedes as secondary text). Emoji-as-icon is a recognisable AI-generated-UI tell, and it renders inconsistently across platforms anyway. `♥`/`♡`/`✕`/`‹`/`›`/`▾`/`•` are *typographic glyphs*, not emoji — they inherit text colour (the saved heart takes `theme.accentText`) and are fine to keep. Two things were reviewed against the same critique and **deliberately kept**: the map pin `box-shadow`s in `concerts-map-leaflet.web.tsx` (functional — they separate a 16px pin from busy *light* map tiles, not decorative depth on a dark surface) and the `expo-blur` web tab bar (translucent bottom bars are long-standing native iOS convention, and it exists to mirror the real native tab bar). `expo-glass-effect` was removed from `package.json` — it was declared but never imported.
+
+## Ask feature (LLM-backed)
+
+`src/app/ask.tsx` → `src/hooks/use-ask.ts` → **`supabase/functions/ask/index.ts`** (Supabase Edge Function) → Anthropic API. The Edge Function exists so the **Anthropic API key stays server-side** — an `EXPO_PUBLIC_` key ships in the client bundle, and unlike the Ticketmaster key an LLM key is *directly billable*, so an extracted one could spend against the account uncapped.
+
+**Two grounding layers, because a model left to answer freely invents shows that don't exist.** The Edge Function sends a catalogue of the real fetched concerts and uses **structured outputs** (`output_config.format`) so the model returns `{reply, concertIds}` rather than prose containing event names. `use-ask.ts` then filters those ids against the app's *own* concert list — a hallucinated id matches nothing and renders nothing. Never replace this with "trust the reply text."
+
+**Cost controls, all deliberate** (this endpoint bills real money per call):
+- **Model is `claude-haiku-4-5`** — the task is constrained selection from a supplied list, not hard reasoning, and cost was the user's binding constraint. One-line change to `claude-sonnet-5`/`claude-opus-5` if answers aren't good enough. Note Haiku 4.5 **rejects the `effort` parameter** and uses the older `budget_tokens` thinking style; thinking is simply omitted here (no thinking = cheapest, and unnecessary for this task).
+- **Auth required.** Without it this is an open billable proxy anyone could point a script at — this is why Ask is the one screen that gates on sign-in.
+- **Per-user daily cap** (40) enforced in Postgres via `increment_ask_usage()` — an atomic upsert-and-return so two concurrent requests can't both slip past. The counter is `security definer` and `revoke`d from `authenticated`, so a client can't reset its own limit.
+- `MAX_TOKENS` 700, `MAX_CONCERTS` 60, 500-char question cap.
+- Actual per-question cost is returned in the response and **shown in the UI** — the user explicitly wanted spend visible rather than discovered on an invoice.
+- **Prompt caching is deliberately not used**: Haiku 4.5's minimum cacheable prefix is 4096 tokens and a ~60-concert catalogue lands well under that, so `cache_control` would silently no-op.
+
+Single-turn by design — no conversation history is replayed, so input size doesn't grow per message.
+
+**`tsconfig.json` excludes `supabase/functions`** — Edge Functions are Deno (npm:/jsr: specifiers, `Deno` global) and fail Node/Expo type-checking. They're type-checked by the Supabase CLI at deploy. Editors will show squiggles there without a Deno extension; that's expected, not a bug.
+
+**Deploy steps** (not automated — there's no standing Supabase CLI session): apply the `ask_usage` migration in the SQL Editor, then `supabase functions deploy ask` and `supabase secrets set ANTHROPIC_API_KEY=...`.
 
 ## Legal screens
 

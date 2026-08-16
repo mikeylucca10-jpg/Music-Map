@@ -36,6 +36,12 @@ yarn-error.*
 # personal Claude Code overrides
 .claude/settings.local.json
 
+# vendored third-party design skills (~10MB, MIT/Apache).
+# Local tooling, not app code — see .claude/skills/README.md to reinstall.
+.claude/skills/*
+# ...but keep the reinstall instructions tracked, or they vanish with the folder.
+!.claude/skills/README.md
+
 # typescript
 *.tsbuildinfo
 
