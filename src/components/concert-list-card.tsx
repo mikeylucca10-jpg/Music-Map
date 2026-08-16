@@ -46,6 +46,16 @@ export function ConcertListCard({
     </ThemedText>
   );
 
+  // The glyph is the only thing in this button, so without an explicit label a
+  // screen reader announces "heart" (or nothing) rather than what tapping does.
+  // Naming the concert matters here because a list renders many of these and
+  // "Save" alone would repeat identically down the whole screen.
+  const saveButtonA11y = {
+    accessibilityRole: 'button' as const,
+    accessibilityLabel: isSaved ? `Remove ${concert.name} from saved` : `Save ${concert.name}`,
+    accessibilityState: { selected: isSaved, disabled: !!isSavePending },
+  };
+
   const card = concert.imageUrl ? (
     <View style={[styles.card, width ? { width } : styles.cardFullWidth]}>
       <Image source={{ uri: concert.imageUrl }} style={styles.image} contentFit="cover" transition={150} />
@@ -65,6 +75,7 @@ export function ConcertListCard({
       </View>
       {onToggleSave && (
         <Pressable
+          {...saveButtonA11y}
           onPress={handleToggleSave}
           disabled={isSavePending}
           hitSlop={8}
@@ -86,6 +97,7 @@ export function ConcertListCard({
         </ThemedText>
         {onToggleSave && (
           <Pressable
+            {...saveButtonA11y}
             onPress={handleToggleSave}
             disabled={isSavePending}
             hitSlop={8}
@@ -107,7 +119,12 @@ export function ConcertListCard({
   if (!onPress) return card;
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => pressed && styles.pressed}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${concert.name} at ${concert.venueName}`}
+      accessibilityHint="Opens show details and ticket options"
+      onPress={onPress}
+      style={({ pressed }) => pressed && styles.pressed}>
       {card}
     </Pressable>
   );

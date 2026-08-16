@@ -182,6 +182,9 @@ export function ConcertsFilterBar({
             onPress={onPrevWeek}
             disabled={!canGoPrevWeek}
             hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Previous week"
+            accessibilityState={{ disabled: !canGoPrevWeek }}
             style={({ pressed }) => pressed && styles.pressed}>
             <ThemedText
               type="smallBold"
@@ -197,6 +200,9 @@ export function ConcertsFilterBar({
             onPress={onNextWeek}
             disabled={!canGoNextWeek}
             hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Next week"
+            accessibilityState={{ disabled: !canGoNextWeek }}
             style={({ pressed }) => pressed && styles.pressed}>
             <ThemedText
               type="smallBold"

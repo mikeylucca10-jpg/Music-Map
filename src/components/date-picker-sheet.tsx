@@ -131,13 +131,26 @@ export function DatePickerSheet({
           <ThemedText type="eyebrow" themeColor="textSecondary">
             Select Date
           </ThemedText>
-          <Pressable onPress={onClose} hitSlop={8} accessibilityLabel="Close">
+          <Pressable
+            onPress={onClose}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Close">
             <ThemedText style={styles.closeIcon}>✕</ThemedText>
           </Pressable>
         </View>
 
         <View style={styles.monthRow}>
-          <Pressable onPress={() => goToMonth(-1)} disabled={!canGoPrev} hitSlop={8}>
+          {/* "‹" alone reads as a punctuation character to a screen reader, so
+              each arrow states the month it moves to rather than a bare
+              "previous"/"next". */}
+          <Pressable
+            onPress={() => goToMonth(-1)}
+            disabled={!canGoPrev}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !canGoPrev }}
+            accessibilityLabel={`Previous month, ${MONTH_LABEL_FORMATTER.format(new Date(viewYear, viewMonth - 1, 1))}`}>
             <ThemedText
               type="subtitle"
               themeColor={canGoPrev ? 'text' : 'textSecondary'}
@@ -146,7 +159,13 @@ export function DatePickerSheet({
             </ThemedText>
           </Pressable>
           <ThemedText type="subtitle">{MONTH_LABEL_FORMATTER.format(new Date(viewYear, viewMonth, 1))}</ThemedText>
-          <Pressable onPress={() => goToMonth(1)} disabled={!canGoNext} hitSlop={8}>
+          <Pressable
+            onPress={() => goToMonth(1)}
+            disabled={!canGoNext}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !canGoNext }}
+            accessibilityLabel={`Next month, ${MONTH_LABEL_FORMATTER.format(new Date(viewYear, viewMonth + 1, 1))}`}>
             <ThemedText
               type="subtitle"
               themeColor={canGoNext ? 'text' : 'textSecondary'}

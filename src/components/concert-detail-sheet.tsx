@@ -78,6 +78,9 @@ export function ConcertDetailSheet({
                   onPress={handleToggleSave}
                   disabled={isSavePending}
                   hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={isSaved ? 'Remove from saved' : 'Save this show'}
+                  accessibilityState={{ selected: isSaved, disabled: !!isSavePending }}
                   style={({ pressed }) => (pressed || isSavePending) && styles.pressed}>
                   <ThemedText style={[styles.heart, isSaved && { color: theme.accentText }]}>
                     {isSaved ? '♥' : '♡'}
