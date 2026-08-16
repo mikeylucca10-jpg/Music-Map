@@ -26,9 +26,9 @@ export default function AppTabs() {
         />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="list">
-        <NativeTabs.Trigger.Label>List</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="list.bullet" md="list" />
+      <NativeTabs.Trigger name="ask">
+        <NativeTabs.Trigger.Label>Ask</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="bubble.left" md="chat" />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="settings">

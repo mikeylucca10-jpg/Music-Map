@@ -1,146 +1,115 @@
-import { Link } from 'expo-router';
 import { useState } from 'react';
-import { NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet } from 'react-native';
 
 import { ConcertDetailSheet } from '@/components/concert-detail-sheet';
 import { ConcertListCard } from '@/components/concert-list-card';
-import { SkeletonCard } from '@/components/skeleton-card';
+import { ConcertsFilterBar } from '@/components/concerts-filter-bar';
+import { ScreenScaffold } from '@/components/screen-scaffold';
+import { SkeletonCardRow } from '@/components/skeleton-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { useApplyDefaultCity } from '@/hooks/use-apply-default-city';
 import { useAuth } from '@/hooks/use-auth';
+import { useConcertsFilters } from '@/hooks/use-concerts-filters';
 import { useEdmConcerts } from '@/hooks/use-edm-concerts';
 import { useProfile } from '@/hooks/use-profile';
 import { useSavedConcerts } from '@/hooks/use-saved-concerts';
-import { useTheme } from '@/hooks/use-theme';
 import { useUserLocation } from '@/hooks/use-user-location';
 import { getDirectionsUrl } from '@/lib/directions';
 import { distanceLabelFor } from '@/lib/geo';
 import { CITIES, Concert } from '@/types/concert';
 
-const FEATURED_CARD_WIDTH = 260;
-const FEATURED_CARD_GAP = Spacing.three;
-
+// This is the full concert list — it used to live at /list while Home showed
+// a featured carousel of the same shows. The two were near-duplicates, so the
+// list took over as the landing screen and the carousel was dropped.
 export default function HomeScreen() {
-  const theme = useTheme();
+  const [city, setCity] = useState(CITIES[0]);
+  const { concerts, isLoading, error, refresh } = useEdmConcerts(city);
+  const {
+    category,
+    setCategory,
+    categories,
+    selectedBoroughId,
+    setBoroughId,
+    selectedDateKey,
+    setDateKey,
+    weekLabel,
+    goToPrevWeek,
+    goToNextWeek,
+    canGoPrevWeek,
+    canGoNextWeek,
+    weekNavRelevant,
+    setWeekOffset,
+    filteredConcerts,
+  } = useConcertsFilters(concerts, city);
   const { session } = useAuth();
   const { profile } = useProfile(session?.user.id ?? null);
-  const [city, setCity] = useState(CITIES[0]);
   useApplyDefaultCity(profile, setCity);
-  const { concerts, isLoading } = useEdmConcerts(city);
   const { isSaved, isSavePending, toggleSave } = useSavedConcerts(session?.user.id ?? null);
+  const [selectedConcert, setSelectedConcert] = useState<Concert | null>(null);
   // Read-only here — this screen doesn't render the permission prompt (only
   // Explore does), it just picks up the coords if already granted.
   const { coords: userLocation } = useUserLocation();
-  const featured = concerts.slice(0, 6);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [selectedConcert, setSelectedConcert] = useState<Concert | null>(null);
-
-  function handleScrollEnd(event: NativeSyntheticEvent<NativeScrollEvent>) {
-    const index = Math.round(
-      event.nativeEvent.contentOffset.x / (FEATURED_CARD_WIDTH + FEATURED_CARD_GAP),
-    );
-    setActiveIndex(Math.max(0, Math.min(index, featured.length - 1)));
-  }
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}>
-          <View style={styles.header}>
-            <ThemedText type="eyebrow" themeColor="textSecondary">
-              Music Map
-            </ThemedText>
-            <ThemedText type="title" style={styles.heroTitle}>
-              Tonight in {city.label}
-            </ThemedText>
-          </View>
+    <ScreenScaffold title="Music Map" subtitle={`Live shows in ${city.label}.`}>
+      <ConcertsFilterBar
+        category={category}
+        onCategoryChange={setCategory}
+        categories={categories}
+        city={city}
+        onCityChange={setCity}
+        cities={CITIES}
+        selectedBoroughId={selectedBoroughId}
+        onBoroughChange={setBoroughId}
+        selectedDateKey={selectedDateKey}
+        onDateChange={setDateKey}
+        weekLabel={weekLabel}
+        onPrevWeek={goToPrevWeek}
+        onNextWeek={goToNextWeek}
+        canGoPrevWeek={canGoPrevWeek}
+        canGoNextWeek={canGoNextWeek}
+        weekNavRelevant={weekNavRelevant}
+        setWeekOffset={setWeekOffset}
+      />
 
-          <View style={styles.quickLinks}>
-            <Link href="/explore" asChild>
-              <Pressable style={({ pressed }) => pressed && styles.pressed}>
-                <View style={[styles.quickLinkPill, { backgroundColor: theme.accent }]}>
-                  <ThemedText type="smallBold" style={{ color: theme.accentInk }}>
-                    Open Map
-                  </ThemedText>
-                </View>
-              </Pressable>
-            </Link>
-            <Link href="/list" asChild>
-              <Pressable style={({ pressed }) => pressed && styles.pressed}>
-                <ThemedView type="backgroundElement" style={styles.quickLinkPill}>
-                  <ThemedText type="smallBold">See Full List</ThemedText>
-                </ThemedView>
-              </Pressable>
-            </Link>
-          </View>
+      {isLoading && (
+        <ThemedView style={styles.list}>
+          <SkeletonCardRow />
+        </ThemedView>
+      )}
 
-          <View style={styles.featuredSection}>
-            <ThemedText type="eyebrow" themeColor="textSecondary" style={styles.sectionHeading}>
-              Featured Shows
-            </ThemedText>
+      {!isLoading && error && (
+        <ThemedView type="backgroundElement" style={styles.messageCard}>
+          <ThemedText type="small">{error}</ThemedText>
+          <Pressable onPress={refresh}>
+            <ThemedText type="linkPrimary">Retry</ThemedText>
+          </Pressable>
+        </ThemedView>
+      )}
 
-            {isLoading ? (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.carouselContent}>
-                <SkeletonCard width={FEATURED_CARD_WIDTH} />
-                <SkeletonCard width={FEATURED_CARD_WIDTH} />
-              </ScrollView>
-            ) : featured.length === 0 ? (
-              <ThemedText type="small" themeColor="textSecondary" style={styles.emptyText}>
-                No upcoming EDM shows found right now.
-              </ThemedText>
-            ) : (
-              <>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  snapToInterval={FEATURED_CARD_WIDTH + FEATURED_CARD_GAP}
-                  decelerationRate="fast"
-                  onMomentumScrollEnd={handleScrollEnd}
-                  contentContainerStyle={styles.carouselContent}>
-                  {featured.map((concert) => (
-                    <ConcertListCard
-                      key={concert.id}
-                      concert={concert}
-                      width={FEATURED_CARD_WIDTH}
-                      onPress={() => setSelectedConcert(concert)}
-                      isSaved={session ? isSaved(concert.id) : undefined}
-                      isSavePending={session ? isSavePending(concert.id) : undefined}
-                      onToggleSave={session ? () => toggleSave(concert) : undefined}
-                      distanceLabel={distanceLabelFor(userLocation, concert)}
-                    />
-                  ))}
-                </ScrollView>
-                <View style={styles.dots}>
-                  {featured.map((concert, index) => (
-                    <View
-                      key={concert.id}
-                      style={[
-                        styles.dot,
-                        {
-                          backgroundColor:
-                            index === activeIndex ? theme.accentText : theme.backgroundElement,
-                        },
-                      ]}
-                    />
-                  ))}
-                </View>
-              </>
-            )}
-          </View>
+      {!isLoading && !error && filteredConcerts.length === 0 && (
+        <ThemedView type="backgroundElement" style={styles.messageCard}>
+          <ThemedText type="small" themeColor="textSecondary">
+            No upcoming EDM shows found right now.
+          </ThemedText>
+        </ThemedView>
+      )}
 
-          {Platform.OS === 'web' && <WebBadge />}
-        </ScrollView>
-      </SafeAreaView>
+      <ThemedView style={styles.list}>
+        {filteredConcerts.map((concert) => (
+          <ConcertListCard
+            key={concert.id}
+            concert={concert}
+            onPress={() => setSelectedConcert(concert)}
+            isSaved={session ? isSaved(concert.id) : undefined}
+            isSavePending={session ? isSavePending(concert.id) : undefined}
+            onToggleSave={session ? () => toggleSave(concert) : undefined}
+            distanceLabel={distanceLabelFor(userLocation, concert)}
+          />
+        ))}
+      </ThemedView>
 
       <ConcertDetailSheet
         concert={selectedConcert}
@@ -151,76 +120,22 @@ export default function HomeScreen() {
         distanceLabel={selectedConcert ? distanceLabelFor(userLocation, selectedConcert) : undefined}
         directionsUrl={selectedConcert ? getDirectionsUrl(selectedConcert) : undefined}
       />
-    </ThemedView>
+    </ScreenScaffold>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: BottomTabInset + Spacing.four,
+  messageCard: {
+    gap: Spacing.two,
+    marginHorizontal: Spacing.four,
+    marginTop: Spacing.four,
+    borderRadius: Spacing.three,
+    padding: Spacing.four,
     alignItems: 'center',
   },
-  header: {
-    alignSelf: 'stretch',
-    maxWidth: MaxContentWidth,
-    gap: Spacing.one,
+  list: {
+    gap: Spacing.three,
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.four,
-  },
-  heroTitle: {
-    fontSize: 30,
-    lineHeight: 34,
-  },
-  pressed: {
-    opacity: 0.75,
-  },
-  quickLinks: {
-    alignSelf: 'stretch',
-    maxWidth: MaxContentWidth,
-    flexDirection: 'row',
-    gap: Spacing.two,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.four,
-  },
-  quickLinkPill: {
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.two,
-    borderRadius: Radius.pill,
-  },
-  featuredSection: {
-    alignSelf: 'stretch',
-    maxWidth: MaxContentWidth,
-    gap: Spacing.two,
-    paddingTop: Spacing.five,
-  },
-  sectionHeading: {
-    paddingHorizontal: Spacing.four,
-  },
-  carouselContent: {
-    gap: FEATURED_CARD_GAP,
-    paddingHorizontal: Spacing.four,
-  },
-  emptyText: {
-    paddingHorizontal: Spacing.four,
-  },
-  dots: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: Spacing.one,
-    paddingTop: Spacing.one,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
   },
 });

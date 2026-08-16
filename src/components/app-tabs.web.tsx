@@ -13,7 +13,7 @@ import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 const TAB_ICONS: Record<string, SymbolViewProps['name']> = {
   home: { web: 'home' },
   explore: { web: 'map' },
-  list: { web: 'list' },
+  ask: { web: 'chat' },
   settings: { web: 'settings' },
 };
 
@@ -29,8 +29,8 @@ export default function AppTabs() {
           <TabTrigger name="explore" href="/explore" asChild>
             <TabButton icon="explore">Explore</TabButton>
           </TabTrigger>
-          <TabTrigger name="list" href="/list" asChild>
-            <TabButton icon="list">List</TabButton>
+          <TabTrigger name="ask" href="/ask" asChild>
+            <TabButton icon="ask">Ask</TabButton>
           </TabTrigger>
           <TabTrigger name="settings" href="/settings" asChild>
             <TabButton icon="settings">Settings</TabButton>
