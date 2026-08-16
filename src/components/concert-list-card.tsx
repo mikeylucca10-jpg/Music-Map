@@ -143,7 +143,10 @@ const styles = StyleSheet.create({
   },
   overlayTitle: {
     fontSize: 19,
-    lineHeight: 22,
+    // 1.32x. Lineup-style names ("Henry Tegethoff, Guy Renée, Coldsteel,
+    // Dopema") routinely wrap to two or three lines here, and the previous
+    // 22px (1.16x) packed those lines tight enough to read as one block.
+    lineHeight: 25,
     color: '#ffffff',
   },
   overlayMeta: {

@@ -48,14 +48,19 @@ export function TabButton({ children, icon, isFocused, ...props }: TabButtonProp
 
   return (
     <Pressable {...props} style={styles.tabButton}>
+      {/* `accentText`, not `accent`: both the icon and the 11px label are marks
+          drawn straight onto the dark bar, not content sitting on an accent
+          fill. `accent` only reaches ~4.4:1 on `background`, which fails AA at
+          this size; `accentText` reaches 5.3:1. See the two-accent-token rule
+          in CLAUDE.md. */}
       <SymbolView
         name={TAB_ICONS[icon]}
-        tintColor={isFocused ? colors.accent : colors.textSecondary}
+        tintColor={isFocused ? colors.accentText : colors.textSecondary}
         size={22}
       />
       <ThemedText
         type="small"
-        style={{ color: isFocused ? colors.accent : colors.textSecondary, fontSize: 11 }}>
+        style={{ color: isFocused ? colors.accentText : colors.textSecondary, fontSize: 11 }}>
         {children}
       </ThemedText>
     </Pressable>

@@ -5,11 +5,15 @@ import { Colors } from '@/constants/theme';
 export default function AppTabs() {
   const colors = Colors.dark;
 
+  // `indicatorColor` stays `accent`: the indicator is a fill that content sits
+  // on top of. The selected *label* is the opposite case — a mark drawn on the
+  // dark bar itself — so it takes `accentText` (5.3:1) rather than `accent`
+  // (~4.4:1, which fails AA at tab-label size). See CLAUDE.md.
   return (
     <NativeTabs
       backgroundColor={colors.background}
       indicatorColor={colors.accent}
-      labelStyle={{ selected: { color: colors.accent } }}>
+      labelStyle={{ selected: { color: colors.accentText } }}>
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
