@@ -16,7 +16,25 @@ const palette = {
   // Warm-tinted rather than neutral grey, so raised/selected surfaces sit in
   // the same colour family as the accent instead of fighting it.
   backgroundSelected: '#241F1F',
+  /**
+   * A third plane, one step above `backgroundElement` and warm-tinted to match
+   * `backgroundSelected`. Exists because the home screen was a flat wall of
+   * identical cards on a single ground — with only two surface levels there is
+   * no way to rank anything visually. Used by the night strip and section
+   * headers to sit above the list without becoming a card themselves.
+   */
+  surfaceRaised: '#1E1A1A',
   textSecondary: '#9B9BA3',
+  /**
+   * Text drawn on top of poster art rather than on a theme surface. Pure white
+   * and a muted white — the art behind them is arbitrary, so these are fixed
+   * rather than theme-derived. Previously hardcoded inline in
+   * concert-list-card.tsx; they live here so the card has no raw hex left.
+   */
+  overlayInk: '#FFFFFF',
+  overlayInkMuted: 'rgba(255, 255, 255, 0.82)',
+  /** Scrim behind overlay controls (the save button on poster art). */
+  overlayScrim: 'rgba(10, 10, 10, 0.55)',
   /**
    * Deliberately a deep vermillion rather than a neon red: bright enough to
    * carry the nightlife energy on near-black, dark enough that white
@@ -43,7 +61,7 @@ export const Colors = {
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
-export const Fonts = Platform.select({
+const fontFamilies = Platform.select({
   ios: {
     /** iOS `UIFontDescriptorSystemDesignDefault` */
     sans: 'system-ui',
@@ -66,7 +84,52 @@ export const Fonts = Platform.select({
     rounded: 'var(--font-rounded)',
     mono: 'var(--font-mono)',
   },
-});
+})!;
+
+/**
+ * The name `useFonts` registers in `_layout.tsx`. Kept as a named constant so
+ * the loader and every consumer cannot drift apart — a typo here silently
+ * falls back to the system face rather than erroring.
+ */
+export const DisplayFontFamily = 'ArchivoExpanded';
+
+/**
+ * One modular type scale, replacing the eleven ad hoc `fontSize` values that
+ * were previously scattered across components (11, 13, 18, 19, 20, 22, 26, 48
+ * among them). Sizes only appear here.
+ *
+ * `base` is 16 because that is the floor for body text on mobile, and its 1.5
+ * line height sits in the 1.5–1.75 band readable body copy needs. Headings run
+ * tighter on purpose: leading that helps a wrapped paragraph makes a two-line
+ * title look like two unrelated lines.
+ */
+const size = {
+  xs: 12,
+  sm: 14,
+  base: 16,
+  lg: 19,
+  xl: 24,
+  xxl: 32,
+} as const;
+
+const lineHeight = {
+  xs: 16,
+  sm: 20,
+  base: 24,
+  /** 1.32 — concert names routinely wrap to two or three lines. */
+  lg: 25,
+  xl: 30,
+  xxl: 36,
+} as const;
+
+const weight = {
+  regular: '400',
+  medium: '500',
+  bold: '700',
+  heavy: '800',
+} as const;
+
+export const Fonts = { ...fontFamilies, display: DisplayFontFamily, size, lineHeight, weight };
 
 export const Spacing = {
   half: 2,

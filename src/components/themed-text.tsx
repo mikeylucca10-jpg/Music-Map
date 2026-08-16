@@ -40,55 +40,62 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
   );
 }
 
+// Every size and line height here comes from the scale in constants/theme.ts.
+// No raw numbers: a new one added locally is a new scale step nobody agreed to.
 const styles = StyleSheet.create({
   small: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: 500,
+    fontSize: Fonts.size.sm,
+    lineHeight: Fonts.lineHeight.sm,
+    fontWeight: Fonts.weight.medium,
   },
   smallBold: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: 700,
+    fontSize: Fonts.size.sm,
+    lineHeight: Fonts.lineHeight.sm,
+    fontWeight: Fonts.weight.bold,
   },
   default: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: 500,
+    fontSize: Fonts.size.base,
+    lineHeight: Fonts.lineHeight.base,
+    fontWeight: Fonts.weight.medium,
   },
+  // The display face is confined to `title` and `subtitle` — the two largest
+  // steps. Archivo Expanded is wide and heavy by design; at body sizes it stops
+  // being characterful and just becomes hard to read.
   title: {
-    fontSize: 48,
-    fontWeight: 800,
-    lineHeight: 50,
+    fontFamily: Fonts.display,
+    fontSize: Fonts.size.xxl,
+    lineHeight: Fonts.lineHeight.xxl,
     letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 26,
-    lineHeight: 32,
-    fontWeight: 800,
+    fontFamily: Fonts.display,
+    fontSize: Fonts.size.xl,
+    lineHeight: Fonts.lineHeight.xl,
     letterSpacing: -0.3,
   },
   // Small uppercase label for section headers ("Buy Tickets", "Saved
   // Concerts") — the "gig poster" accent, used sparingly, not on body text.
   eyebrow: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: 800,
+    fontSize: Fonts.size.xs,
+    lineHeight: Fonts.lineHeight.xs,
+    fontWeight: Fonts.weight.heavy,
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
+  // Links keep the roomier `xl` leading at `sm` size: it is doing tap-target
+  // work here, not typographic work, since these sit inline in running text.
   link: {
-    lineHeight: 30,
-    fontSize: 14,
+    fontSize: Fonts.size.sm,
+    lineHeight: Fonts.lineHeight.xl,
   },
   linkPrimary: {
-    lineHeight: 30,
-    fontSize: 14,
-    fontWeight: 600,
+    fontSize: Fonts.size.sm,
+    lineHeight: Fonts.lineHeight.xl,
+    fontWeight: Fonts.weight.bold,
   },
   code: {
     fontFamily: Fonts.mono,
-    fontWeight: Platform.select({ android: 700 }) ?? 500,
-    fontSize: 12,
+    fontWeight: Platform.select({ android: Fonts.weight.bold }) ?? Fonts.weight.medium,
+    fontSize: Fonts.size.xs,
   },
 });
