@@ -41,7 +41,7 @@ export function ConcertListCard({
   }
 
   const heartIcon = (
-    <ThemedText style={[styles.heart, isSaved && { color: theme.accent }]}>
+    <ThemedText style={[styles.heart, isSaved && { color: theme.accentText }]}>
       {isSaved ? '♥' : '♡'}
     </ThemedText>
   );

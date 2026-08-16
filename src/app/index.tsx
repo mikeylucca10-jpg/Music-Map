@@ -46,8 +46,6 @@ export default function HomeScreen() {
     setActiveIndex(Math.max(0, Math.min(index, featured.length - 1)));
   }
 
-  const greetingName = profile?.displayName || session?.user.email?.split('@')[0];
-
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -59,8 +57,8 @@ export default function HomeScreen() {
             <ThemedText type="eyebrow" themeColor="textSecondary">
               Music Map
             </ThemedText>
-            <ThemedText type="title" style={styles.greeting}>
-              {greetingName ? `Make plans, ${greetingName}` : 'Make plans'}
+            <ThemedText type="title" style={styles.heroTitle}>
+              Tonight in {city.label}
             </ThemedText>
           </View>
 
@@ -85,7 +83,7 @@ export default function HomeScreen() {
 
           <View style={styles.featuredSection}>
             <ThemedText type="eyebrow" themeColor="textSecondary" style={styles.sectionHeading}>
-              Upcoming in {city.label}
+              Featured Shows
             </ThemedText>
 
             {isLoading ? (
@@ -130,7 +128,7 @@ export default function HomeScreen() {
                         styles.dot,
                         {
                           backgroundColor:
-                            index === activeIndex ? theme.accent : theme.backgroundElement,
+                            index === activeIndex ? theme.accentText : theme.backgroundElement,
                         },
                       ]}
                     />
@@ -178,7 +176,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.four,
   },
-  greeting: {
+  heroTitle: {
     fontSize: 30,
     lineHeight: 34,
   },

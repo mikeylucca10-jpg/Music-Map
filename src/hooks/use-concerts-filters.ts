@@ -28,9 +28,14 @@ const KEYWORD_MATCHERS: Partial<Record<Category, RegExp>> = {
 
 const MAX_WEEKS_AHEAD = 8;
 
+// The helpers below are exported purely so the unit tests can reach them
+// (see __tests__/use-concerts-filters.test.ts) — they're pure functions with
+// fiddly calendar edge cases, and testing them through the hook would need a
+// full React renderer for no added coverage.
+
 // Monday-Sunday, so a weekend (Fri/Sat/Sun) always falls at the end of "its"
 // week rather than Sunday spilling into the next Sun-Sat window.
-function getWeekWindow(weekOffset: number, now: Date) {
+export function getWeekWindow(weekOffset: number, now: Date) {
   const daysSinceMonday = (now.getDay() + 6) % 7;
   const weekStart = new Date(now);
   weekStart.setHours(0, 0, 0, 0);
@@ -47,7 +52,7 @@ function getMonthWindow(now: Date) {
   return { monthStart, monthEnd };
 }
 
-function isThisWeekend(startDateTime: string, now: Date, weekOffset: number) {
+export function isThisWeekend(startDateTime: string, now: Date, weekOffset: number) {
   const date = new Date(startDateTime);
   const day = now.getDay();
   // Days since the most recent Friday (Fri=0, Sat=1, Sun=2, Mon=3, ... Thu=6).
@@ -63,7 +68,12 @@ function isThisWeekend(startDateTime: string, now: Date, weekOffset: number) {
   return date >= fridayStart && date <= sundayEnd;
 }
 
-function matchesCategory(concert: Concert, category: Category, now: Date, weekOffset: number) {
+export function matchesCategory(
+  concert: Concert,
+  category: Category,
+  now: Date,
+  weekOffset: number,
+) {
   switch (category) {
     case 'All':
       return true;
@@ -84,7 +94,12 @@ function matchesCategory(concert: Concert, category: Category, now: Date, weekOf
 // navigator) so opening the app doesn't dump every upcoming show at once —
 // except Pop-ups, which gets a full month instead of a week since pop-ups
 // are sparser and a week window would often come up empty.
-function isWithinActiveWindow(concert: Concert, category: Category, weekOffset: number, now: Date) {
+export function isWithinActiveWindow(
+  concert: Concert,
+  category: Category,
+  weekOffset: number,
+  now: Date,
+) {
   const date = new Date(concert.startDateTime);
   if (category === 'Pop-ups') {
     const { monthStart, monthEnd } = getMonthWindow(now);

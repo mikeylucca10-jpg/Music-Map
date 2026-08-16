@@ -10,7 +10,7 @@ import { City, Concert } from '@/types/concert';
 // show — so dedupe by name+venue+exact start time. A multi-day
 // festival/residency is *not* collapsed by this: each day has a different
 // startDateTime, so it's a different key and still shows once per day.
-function dedupeConcerts(concerts: Concert[]): Concert[] {
+export function dedupeConcerts(concerts: Concert[]): Concert[] {
   const seen = new Set<string>();
   return concerts.filter((concert) => {
     const key = `${concert.name.trim().toLowerCase()}|${concert.venueName.trim().toLowerCase()}|${concert.startDateTime}`;

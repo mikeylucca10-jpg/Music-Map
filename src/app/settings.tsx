@@ -1,3 +1,4 @@
+import { Link } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
@@ -17,7 +18,8 @@ import { CITIES, SavedConcert } from '@/types/concert';
 const SAVED_CARD_WIDTH = 170;
 
 export default function SettingsScreen() {
-  const { session, isLoading, error, isSupabaseConfigured, signIn, signUp, signOut } = useAuth();
+  const { session, isLoading, error, isSupabaseConfigured, signIn, signUp, signOut, resetPassword } =
+    useAuth();
   const userId = session?.user.id ?? null;
   const { profile, error: profileError, updateProfile } = useProfile(userId);
   const {
@@ -34,12 +36,14 @@ export default function SettingsScreen() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [displayNameDraft, setDisplayNameDraft] = useState('');
   const [confirmationPendingEmail, setConfirmationPendingEmail] = useState<string | null>(null);
+  const [resetEmailSent, setResetEmailSent] = useState<string | null>(null);
   const [selectedConcert, setSelectedConcert] = useState<SavedConcert | null>(null);
   const theme = useTheme();
 
   async function submit() {
     setIsSubmitting(true);
     setConfirmationPendingEmail(null);
+    setResetEmailSent(null);
     if (mode === 'signIn') {
       await signIn(email, password);
     } else {
@@ -47,6 +51,17 @@ export default function SettingsScreen() {
       if (result === 'confirmation-required') setConfirmationPendingEmail(email);
     }
     setIsSubmitting(false);
+  }
+
+  async function handleForgotPassword() {
+    if (!email.trim()) {
+      return;
+    }
+    setIsSubmitting(true);
+    setConfirmationPendingEmail(null);
+    const success = await resetPassword(email.trim());
+    setIsSubmitting(false);
+    if (success) setResetEmailSent(email.trim());
   }
 
   function startEditingName() {
@@ -75,7 +90,7 @@ export default function SettingsScreen() {
 
       {isSupabaseConfigured && isLoading && (
         <ThemedView style={styles.centerState}>
-          <ActivityIndicator color={theme.accent} />
+          <ActivityIndicator color={theme.accentText} />
         </ThemedView>
       )}
 
@@ -248,6 +263,16 @@ export default function SettingsScreen() {
             </ThemedView>
           )}
 
+          {resetEmailSent && (
+            <ThemedView type="backgroundSelected" style={styles.messageCard}>
+              <ThemedText type="smallBold">Check your email</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                We sent a password reset link to {resetEmailSent}. Click it to choose a new
+                password.
+              </ThemedText>
+            </ThemedView>
+          )}
+
           <ThemedView type="backgroundElement" style={styles.inputWrapper}>
             <TextInput
               value={email}
@@ -271,6 +296,21 @@ export default function SettingsScreen() {
             />
           </ThemedView>
 
+          {mode === 'signIn' && (
+            <Pressable
+              onPress={handleForgotPassword}
+              disabled={!email.trim() || isSubmitting}
+              style={({ pressed }) => [
+                styles.forgotPasswordLink,
+                pressed && styles.pressed,
+                !email.trim() && styles.disabled,
+              ]}>
+              <ThemedText type="small" themeColor="textSecondary">
+                Forgot password?
+              </ThemedText>
+            </Pressable>
+          )}
+
           {error && (
             <ThemedText type="small" themeColor="textSecondary">
               {error}
@@ -291,6 +331,32 @@ export default function SettingsScreen() {
           </Pressable>
         </ThemedView>
       )}
+
+      {/* Outside every auth conditional — the legal documents have to be
+          reachable whether or not someone has an account. */}
+      <ThemedView style={styles.savedSection}>
+        <ThemedText type="eyebrow" themeColor="textSecondary" style={styles.savedHeading}>
+          About
+        </ThemedText>
+        <View style={styles.legalLinks}>
+          <Link href="/privacy-policy" asChild>
+            <Pressable style={({ pressed }) => pressed && styles.pressed}>
+              <ThemedView type="backgroundElement" style={styles.legalRow}>
+                <ThemedText type="default">Privacy Policy</ThemedText>
+                <ThemedText themeColor="textSecondary">›</ThemedText>
+              </ThemedView>
+            </Pressable>
+          </Link>
+          <Link href="/terms" asChild>
+            <Pressable style={({ pressed }) => pressed && styles.pressed}>
+              <ThemedView type="backgroundElement" style={styles.legalRow}>
+                <ThemedText type="default">Terms of Service</ThemedText>
+                <ThemedText themeColor="textSecondary">›</ThemedText>
+              </ThemedView>
+            </Pressable>
+          </Link>
+        </View>
+      </ThemedView>
 
       <ConcertDetailSheet
         concert={selectedConcert}
@@ -361,6 +427,17 @@ const styles = StyleSheet.create({
   centerText: {
     paddingHorizontal: Spacing.four,
   },
+  legalLinks: {
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.four,
+  },
+  legalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: Radius.card,
+    padding: Spacing.three,
+  },
   signOutButton: {
     alignSelf: 'flex-start',
     marginTop: Spacing.two,
@@ -392,6 +469,9 @@ const styles = StyleSheet.create({
     borderRadius: Radius.card,
     paddingHorizontal: Spacing.three,
     justifyContent: 'center',
+  },
+  forgotPasswordLink: {
+    alignSelf: 'flex-end',
   },
   input: {
     fontSize: 16,

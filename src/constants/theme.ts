@@ -13,10 +13,26 @@ const palette = {
   text: '#F5F5F7',
   background: '#0A0A0A',
   backgroundElement: '#161616',
-  backgroundSelected: '#242226',
+  // Warm-tinted rather than neutral grey, so raised/selected surfaces sit in
+  // the same colour family as the accent instead of fighting it.
+  backgroundSelected: '#241F1F',
   textSecondary: '#9B9BA3',
-  accent: '#8B5CF6',
+  /**
+   * Deliberately a deep vermillion rather than a neon red: bright enough to
+   * carry the nightlife energy on near-black, dark enough that white
+   * `accentInk` text on top clears WCAG AA (~4.5:1) at the 14px bold size the
+   * accent pills actually use. A lighter coral looks punchier in isolation but
+   * drops that to ~3.3:1, which fails at this text size.
+   */
+  accent: '#E03131',
   accentInk: '#FFFFFF',
+  /**
+   * The same red, lightened for use *as* text or an icon on a dark surface —
+   * a fill colour and a text colour have opposite contrast requirements, and
+   * `accent` itself only reaches ~4.4:1 on `background`. Close enough in hue
+   * that the two read as one colour, not two.
+   */
+  accentText: '#EF4444',
   border: 'rgba(255, 255, 255, 0.08)',
 } as const;
 

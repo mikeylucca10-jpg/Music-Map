@@ -79,36 +79,38 @@ export function ConcertDetailSheet({
                   disabled={isSavePending}
                   hitSlop={8}
                   style={({ pressed }) => (pressed || isSavePending) && styles.pressed}>
-                  <ThemedText style={[styles.heart, isSaved && { color: theme.accent }]}>
+                  <ThemedText style={[styles.heart, isSaved && { color: theme.accentText }]}>
                     {isSaved ? '♥' : '♡'}
                   </ThemedText>
                 </Pressable>
               )}
             </View>
 
+            {/* Typographic hierarchy rather than an icon per row: the date
+                leads at full size/contrast, the address is already visually
+                distinct as an accent-coloured link, and the distance recedes
+                as secondary text. */}
             <View style={styles.metaRows}>
-              <ThemedText type="small" themeColor="textSecondary">
-                🗓️ {formatConcertDateTime(concert.startDateTime)}
-              </ThemedText>
+              <ThemedText type="default">{formatConcertDateTime(concert.startDateTime)}</ThemedText>
               {directionsUrl ? (
                 <Pressable
                   onPress={() => Linking.openURL(directionsUrl)}
                   hitSlop={4}
                   style={({ pressed }) => pressed && styles.pressed}>
-                  <ThemedText type="small" style={[styles.addressLink, { color: theme.accent }]}>
-                    📍 {concert.venueName}
+                  <ThemedText type="small" style={[styles.addressLink, { color: theme.accentText }]}>
+                    {concert.venueName}
                     {concert.address ? ` · ${concert.address}` : ''}
                   </ThemedText>
                 </Pressable>
               ) : (
                 <ThemedText type="small" themeColor="textSecondary">
-                  📍 {concert.venueName}
+                  {concert.venueName}
                   {concert.address ? ` · ${concert.address}` : ''}
                 </ThemedText>
               )}
               {distanceLabel && (
                 <ThemedText type="small" themeColor="textSecondary">
-                  🧭 {distanceLabel}
+                  {distanceLabel}
                 </ThemedText>
               )}
             </View>
@@ -118,7 +120,7 @@ export function ConcertDetailSheet({
                 onPress={() => Linking.openURL(directionsUrl)}
                 style={({ pressed }) => [styles.directionsWrapper, pressed && styles.pressed]}>
                 <ThemedView type="backgroundSelected" style={styles.directionsButton}>
-                  <ThemedText type="default">🧭 Get Directions</ThemedText>
+                  <ThemedText type="default">Get Directions</ThemedText>
                   <ThemedText themeColor="textSecondary">›</ThemedText>
                 </ThemedView>
               </Pressable>

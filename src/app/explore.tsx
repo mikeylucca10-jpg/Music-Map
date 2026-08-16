@@ -70,7 +70,7 @@ export default function ExploreScreen() {
           onPress={requestLocation}
           style={({ pressed }) => [styles.locationButton, pressed && styles.pressed]}>
           <ThemedView type="backgroundElement" style={styles.locationPill}>
-            <ThemedText type="smallBold">📍 Show My Location</ThemedText>
+            <ThemedText type="smallBold">Show My Location</ThemedText>
           </ThemedView>
         </Pressable>
       )}
@@ -100,7 +100,7 @@ export default function ExploreScreen() {
       {(isLoading || error || (!isLoading && filteredConcerts.length === 0)) && (
         <View style={styles.centerOverlay} pointerEvents="box-none">
           <ThemedView type="backgroundElement" style={styles.messageCard}>
-            {isLoading && <ActivityIndicator color={theme.accent} />}
+            {isLoading && <ActivityIndicator color={theme.accentText} />}
             {!isLoading && error && (
               <>
                 <ThemedText type="small">{error}</ThemedText>

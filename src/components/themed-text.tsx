@@ -31,7 +31,7 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
         type === 'subtitle' && styles.subtitle,
         type === 'eyebrow' && styles.eyebrow,
         type === 'link' && styles.link,
-        type === 'linkPrimary' && [styles.linkPrimary, { color: theme.accent }],
+        type === 'linkPrimary' && [styles.linkPrimary, { color: theme.accentText }],
         type === 'code' && styles.code,
         style,
       ]}

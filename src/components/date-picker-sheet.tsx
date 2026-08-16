@@ -183,7 +183,7 @@ export function DatePickerSheet({
                   style={[
                     styles.dayCircle,
                     isSelected && { backgroundColor: theme.accent },
-                    isToday && !isSelected && { borderWidth: 1, borderColor: theme.accent },
+                    isToday && !isSelected && { borderWidth: 1, borderColor: theme.accentText },
                   ]}>
                   <ThemedText
                     type={isSelected ? 'smallBold' : 'small'}
@@ -222,8 +222,12 @@ export function DatePickerSheet({
         <View style={styles.footerRow}>
           <Pressable
             onPress={handleResetToToday}
-            style={({ pressed }) => [styles.resetButton, { borderColor: theme.accent }, pressed && styles.pressed]}>
-            <ThemedText type="smallBold" style={{ color: theme.accent }}>
+            style={({ pressed }) => [
+              styles.resetButton,
+              { borderColor: theme.accentText },
+              pressed && styles.pressed,
+            ]}>
+            <ThemedText type="smallBold" style={{ color: theme.accentText }}>
               Reset to Today
             </ThemedText>
           </Pressable>
