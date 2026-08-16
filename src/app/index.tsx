@@ -41,6 +41,7 @@ export default function HomeScreen() {
     canGoNextWeek,
     weekNavRelevant,
     setWeekOffset,
+    weekNights,
     filteredConcerts,
   } = useConcertsFilters(concerts, city);
   const { session } = useAuth();
@@ -72,6 +73,7 @@ export default function HomeScreen() {
         canGoNextWeek={canGoNextWeek}
         weekNavRelevant={weekNavRelevant}
         setWeekOffset={setWeekOffset}
+        weekNights={weekNights}
       />
 
       {isLoading && (

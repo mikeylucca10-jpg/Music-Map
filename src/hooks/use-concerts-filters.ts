@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import { isPointInMultiPolygon } from '@/lib/geo';
-import { formatWeekRangeLabel, getNycDateKey } from '@/lib/format-date';
+import { dateKeyFor, formatWeekRangeLabel, getNycDateKey } from '@/lib/format-date';
 import { City, Concert } from '@/types/concert';
 
 export const CATEGORIES = [
@@ -140,6 +140,43 @@ export function useConcertsFilters(concerts: Concert[], city: City) {
   const weekLabel =
     weekOffset === 0 ? 'This Week' : weekOffset === 1 ? 'Next Week' : formatWeekRangeLabel(weekStart, weekEnd);
 
+  // The seven nights of the visible week, each with how many shows land on it.
+  //
+  // Counts honour category and borough but deliberately ignore `dateKey`:
+  // the strip's whole job is to show what *else* is on this week, so scoping it
+  // to the night already selected would flatten every other bar to zero and
+  // make the control useless the moment it was used.
+  //
+  // Bars are keyed by NYC calendar day via getNycDateKey, matching how the date
+  // filter itself compares, so a late-night show lands on the night people
+  // would say it belongs to rather than the viewer's local date.
+  const weekNights = useMemo(() => {
+    const now = new Date();
+    const inScope = concerts.filter(
+      (concert) =>
+        matchesCategory(concert, category, now, weekOffset) &&
+        (!selectedBorough || isWithinBorough(concert, selectedBorough)),
+    );
+
+    const counts = new Map<string, number>();
+    for (const concert of inScope) {
+      const key = getNycDateKey(new Date(concert.startDateTime));
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+
+    const todayKey = getNycDateKey(now);
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(weekStart);
+      date.setDate(weekStart.getDate() + index);
+      const key = dateKeyFor(date.getFullYear(), date.getMonth(), date.getDate());
+      return { dateKey: key, date, count: counts.get(key) ?? 0, isToday: key === todayKey };
+    });
+    // weekStart is derived from weekOffset and is a fresh object every render,
+    // so weekOffset is the real dependency — listing weekStart would defeat
+    // the memo entirely.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [concerts, category, selectedBorough, weekOffset]);
+
   const filteredConcerts = useMemo(() => {
     // Deliberately not a dependency: a fresh Date() here would otherwise
     // need to be a memo dependency, which — being a new object identity
@@ -175,7 +212,12 @@ export function useConcertsFilters(concerts: Concert[], city: City) {
     // The week navigator doesn't apply to Pop-ups (month-scoped instead) or
     // once a specific date is picked (that's a stronger, more specific
     // filter) — the filter bar hides the row in both cases.
-    weekNavRelevant: category !== 'Pop-ups' && dateKey === null,
+    // Pop-ups is month-scoped, so a week strip would misrepresent what is
+    // actually being filtered. Unlike the old arrow row this stays visible once
+    // a date is picked: the strip is how that date was picked, and how it gets
+    // changed or cleared.
+    weekNavRelevant: category !== 'Pop-ups',
+    weekNights,
     filteredConcerts,
   };
 }

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { DatePickerSheet } from '@/components/date-picker-sheet';
+import { NightDensityStrip, type WeekNight } from '@/components/night-density-strip';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
@@ -27,6 +28,8 @@ type ConcertsFilterBarProps = {
   canGoNextWeek?: boolean;
   weekNavRelevant?: boolean;
   setWeekOffset?: (offset: number) => void;
+  /** The visible week's seven nights with per-night show counts, for the strip. */
+  weekNights?: WeekNight[];
 };
 
 export function ConcertsFilterBar({
@@ -47,6 +50,7 @@ export function ConcertsFilterBar({
   canGoNextWeek = false,
   weekNavRelevant = true,
   setWeekOffset,
+  weekNights,
 }: ConcertsFilterBarProps) {
   const [cityMenuOpen, setCityMenuOpen] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
@@ -176,42 +180,20 @@ export function ConcertsFilterBar({
         </View>
       </View>
 
-      {weekLabel && onPrevWeek && onNextWeek && weekNavRelevant && (
-        <View style={styles.weekNavRow}>
-          <Pressable
-            onPress={onPrevWeek}
-            disabled={!canGoPrevWeek}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Previous week"
-            accessibilityState={{ disabled: !canGoPrevWeek }}
-            style={({ pressed }) => pressed && styles.pressed}>
-            <ThemedText
-              type="smallBold"
-              themeColor={canGoPrevWeek ? 'text' : 'textSecondary'}
-              style={!canGoPrevWeek && styles.disabled}>
-              ‹
-            </ThemedText>
-          </Pressable>
-          <ThemedText type="smallBold" themeColor="textSecondary">
-            {weekLabel}
-          </ThemedText>
-          <Pressable
-            onPress={onNextWeek}
-            disabled={!canGoNextWeek}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Next week"
-            accessibilityState={{ disabled: !canGoNextWeek }}
-            style={({ pressed }) => pressed && styles.pressed}>
-            <ThemedText
-              type="smallBold"
-              themeColor={canGoNextWeek ? 'text' : 'textSecondary'}
-              style={!canGoNextWeek && styles.disabled}>
-              ›
-            </ThemedText>
-          </Pressable>
-        </View>
+      {/* The old "‹ This Week ›" row lived here. It has been replaced by
+          NightDensityStrip, which does the same paging and additionally shows
+          what is actually on each night. */}
+      {weekLabel && onPrevWeek && onNextWeek && weekNavRelevant && weekNights && onDateChange && (
+        <NightDensityStrip
+          nights={weekNights}
+          selectedDateKey={selectedDateKey}
+          onSelectDateKey={onDateChange}
+          weekLabel={weekLabel}
+          onPrevWeek={onPrevWeek}
+          onNextWeek={onNextWeek}
+          canGoPrevWeek={canGoPrevWeek}
+          canGoNextWeek={canGoNextWeek}
+        />
       )}
     </View>
   );
