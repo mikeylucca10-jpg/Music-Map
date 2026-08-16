@@ -3,6 +3,23 @@ import type { MultiPolygonCoordinates } from '@/lib/geo';
 
 export type ConcertSource = 'ticketmaster' | 'edmtrain';
 
+/**
+ * One raw classification triple as the source returned it, stored unfiltered.
+ *
+ * Captured for the Phase 4 similarity work, but deliberately *not* trusted as a
+ * scoring signal on its own. Sampling the live NYC feed shows why: `genre` is
+ * near-uniformly "Dance/Electronic" because that is the value we already query
+ * on, so it carries almost no information between two results; `subGenre` is
+ * frequently absent, and both fields are sometimes the literal string "Other".
+ * Stored raw rather than normalised so a later scorer can decide what to
+ * discard — normalising here would bake today's guess into the data.
+ */
+export type ConcertClassification = {
+  segment?: string;
+  genre?: string;
+  subGenre?: string;
+};
+
 export type Concert = {
   id: string;
   source: ConcertSource;
@@ -20,6 +37,8 @@ export type Concert = {
   priceMin?: number;
   priceMax?: number;
   priceCurrency?: string;
+  /** See ConcertClassification — captured for Phase 4, not yet read anywhere. */
+  classifications?: ConcertClassification[];
 };
 
 // Shared shape for anything that just displays/links a concert (cards, the

@@ -16,6 +16,12 @@ type TicketmasterAttraction = {
 
 type TicketmasterImage = { url: string; width?: number; height?: number };
 
+type TicketmasterClassification = {
+  segment?: { name?: string };
+  genre?: { name?: string };
+  subGenre?: { name?: string };
+};
+
 type TicketmasterEvent = {
   id: string;
   name: string;
@@ -24,6 +30,7 @@ type TicketmasterEvent = {
   images?: TicketmasterImage[];
   priceRanges?: { min?: number; max?: number; currency?: string }[];
   ageRestrictions?: { legalAgeEnforced?: boolean };
+  classifications?: TicketmasterClassification[];
   _embedded?: { venues?: TicketmasterVenue[]; attractions?: TicketmasterAttraction[] };
 };
 
@@ -100,6 +107,15 @@ export async function fetchTicketmasterConcerts(city: City): Promise<Concert[]> 
       priceMin: priceRange?.min,
       priceMax: priceRange?.max,
       priceCurrency: priceRange?.currency,
+      // Flattened from Ticketmaster's nested {name} wrappers but otherwise
+      // unfiltered — entries whose genre is "Other", or which carry no
+      // subGenre at all, are kept as-is so the eventual scorer decides what is
+      // worth using. Nothing reads this yet.
+      classifications: event.classifications?.map((classification) => ({
+        segment: classification.segment?.name,
+        genre: classification.genre?.name,
+        subGenre: classification.subGenre?.name,
+      })),
     });
   }
 
