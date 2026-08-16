@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ExternalLink } from '@/components/external-link';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Radius, Spacing } from '@/constants/theme';
+import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatConcertDateTime } from '@/lib/format-date';
 import { getTicketSources, TicketSource } from '@/lib/ticket-sources';
@@ -64,7 +64,7 @@ export function ConcertDetailSheet({
 
             <View style={styles.titleRow}>
               <View style={styles.titleColumn}>
-                <ThemedText type="subtitle" style={styles.title}>
+                <ThemedText type="subtitle">
                   {concert.name}
                 </ThemedText>
                 {concert.artist && concert.artist !== concert.name && (
@@ -171,7 +171,7 @@ function TicketSourceRow({ source }: { source: TicketSource }) {
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: Colors.dark.backdrop,
   },
   sheet: {
     borderTopLeftRadius: Radius.large,
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.24)',
+    backgroundColor: Colors.dark.grabber,
     marginTop: Spacing.two,
     marginBottom: Spacing.one,
   },
@@ -195,7 +195,9 @@ const styles = StyleSheet.create({
   heroImage: {
     width: '100%',
     aspectRatio: 16 / 9,
-    backgroundColor: '#000000',
+    // Holds the hero's height before the image decodes, so the sheet's content
+    // does not jump downward as it arrives.
+    backgroundColor: Colors.dark.background,
   },
   titleRow: {
     flexDirection: 'row',
@@ -208,10 +210,8 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: Spacing.half,
   },
-  title: {
-    fontSize: 22,
-    lineHeight: 26,
-  },
+  // Off-scale on purpose: a single glyph optically centred in its tap area, so
+  // these are doing centring work rather than typographic work.
   heart: {
     fontSize: 26,
     lineHeight: 28,
@@ -261,9 +261,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   monogramText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '700',
+    color: Colors.dark.overlayInk,
+    fontSize: Fonts.size.xs,
+    fontWeight: Fonts.weight.bold,
   },
   sourceLabelColumn: {
     flex: 1,

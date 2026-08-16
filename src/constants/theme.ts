@@ -35,6 +35,11 @@ const palette = {
   overlayInkMuted: 'rgba(255, 255, 255, 0.82)',
   /** Scrim behind overlay controls (the save button on poster art). */
   overlayScrim: 'rgba(10, 10, 10, 0.55)',
+  /** Dimmer behind a modal sheet, separating it from the screen underneath. */
+  backdrop: 'rgba(0, 0, 0, 0.6)',
+  /** The drag handle on a bottom sheet. Brighter than `border` — it is an
+   *  affordance the user is meant to notice, not a hairline. */
+  grabber: 'rgba(255, 255, 255, 0.24)',
   /**
    * Deliberately a deep vermillion rather than a neon red: bright enough to
    * carry the nightlife energy on near-black, dark enough that white
@@ -151,3 +156,20 @@ export const Radius = {
   large: 24,
   pill: 999,
 } as const;
+
+/**
+ * Scrim laid over poster art so overlaid text stays readable regardless of what
+ * the image happens to be. Stops short of solid black at the base: the art
+ * should still be legible through it, not cropped away by a bar.
+ */
+export const PosterGradient = {
+  colors: ['transparent', 'rgba(0, 0, 0, 0.55)', 'rgba(0, 0, 0, 0.92)'] as const,
+  locations: [0, 0.55, 1] as const,
+};
+
+/**
+ * Minimum comfortable touch target. Controls smaller than this visually must
+ * make up the difference with `hitSlop` — the 36pt save button plus 8pt of slop
+ * reaches 52pt, which clears it.
+ */
+export const MinTouchTarget = 44;

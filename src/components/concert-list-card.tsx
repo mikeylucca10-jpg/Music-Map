@@ -5,10 +5,19 @@ import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Radius, Spacing } from '@/constants/theme';
+import { Colors, Fonts, PosterGradient, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatConcertDateTime } from '@/lib/format-date';
 import { ConcertSummary } from '@/types/concert';
+
+/**
+ * Colours here read from `Colors.dark` directly rather than `useTheme()`
+ * because they sit inside StyleSheet.create, which is evaluated once at module
+ * load. That is safe precisely because this app is dark-only by design —
+ * `Colors.light` and `Colors.dark` are the same object. If a real light theme
+ * is ever added, every one of these has to move into the component body.
+ */
+const HEART_BUTTON_SIZE = 36;
 
 type ConcertListCardProps = {
   concert: ConcertSummary;
@@ -60,8 +69,8 @@ export function ConcertListCard({
     <View style={[styles.card, width ? { width } : styles.cardFullWidth]}>
       <Image source={{ uri: concert.imageUrl }} style={styles.image} contentFit="cover" transition={150} />
       <LinearGradient
-        colors={['transparent', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.92)']}
-        locations={[0, 0.55, 1]}
+        colors={[...PosterGradient.colors]}
+        locations={[...PosterGradient.locations]}
         style={styles.gradient}
       />
       <View style={styles.overlayText}>
@@ -141,7 +150,9 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     aspectRatio: 4 / 5,
-    backgroundColor: '#000000',
+    // Reserves the card's full height before the image decodes, so arriving
+    // art swaps in place instead of shoving the rest of the list downward.
+    backgroundColor: Colors.dark.background,
   },
   gradient: {
     position: 'absolute',
@@ -158,16 +169,16 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     gap: Spacing.half,
   },
+  // `lg` is the scale step sized for this: 1.32 leading, because lineup-style
+  // names ("Henry Tegethoff, Guy Renée, Coldsteel, Dopema") routinely wrap to
+  // two or three lines and tighter leading packs them into one unreadable block.
   overlayTitle: {
-    fontSize: 19,
-    // 1.32x. Lineup-style names ("Henry Tegethoff, Guy Renée, Coldsteel,
-    // Dopema") routinely wrap to two or three lines here, and the previous
-    // 22px (1.16x) packed those lines tight enough to read as one block.
-    lineHeight: 25,
-    color: '#ffffff',
+    fontSize: Fonts.size.lg,
+    lineHeight: Fonts.lineHeight.lg,
+    color: Colors.dark.overlayInk,
   },
   overlayMeta: {
-    color: 'rgba(255, 255, 255, 0.82)',
+    color: Colors.dark.overlayInkMuted,
   },
   noImageCard: {
     gap: Spacing.one,
@@ -183,21 +194,26 @@ const styles = StyleSheet.create({
     flex: 1,
     fontWeight: '700',
   },
+  // 36pt visually, but rendered with hitSlop={8} for a 52pt touch target —
+  // comfortably past MinTouchTarget. Sized down deliberately: a full 44pt disc
+  // sitting on the artwork reads as a badge rather than a control.
   heartButtonOverlay: {
     position: 'absolute',
     top: Spacing.two,
     right: Spacing.two,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(10, 10, 10, 0.55)',
+    width: HEART_BUTTON_SIZE,
+    height: HEART_BUTTON_SIZE,
+    borderRadius: HEART_BUTTON_SIZE / 2,
+    backgroundColor: Colors.dark.overlayScrim,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Off-scale on purpose: this is a single glyph optically centred in a fixed
+  // disc, so the line height is doing centring work, not typographic work.
   heart: {
     fontSize: 20,
     lineHeight: 22,
-    color: '#ffffff',
+    color: Colors.dark.overlayInk,
   },
   pressed: {
     opacity: 0.75,
