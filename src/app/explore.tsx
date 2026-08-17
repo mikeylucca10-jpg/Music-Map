@@ -8,7 +8,7 @@ import { ConcertsMap } from '@/components/concerts-map';
 import { LocationPermissionPrompt } from '@/components/location-permission-prompt';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Radius, Spacing } from '@/constants/theme';
+import { BottomTabInset, Radius, Spacing } from '@/constants/theme';
 import { useApplyDefaultCity } from '@/hooks/use-apply-default-city';
 import { useAuth } from '@/hooks/use-auth';
 import { useConcertsFilters } from '@/hooks/use-concerts-filters';
@@ -78,10 +78,12 @@ export default function ExploreScreen() {
         userLocation={userLocation}
       />
 
-      {/* Only offered while asking can still do something. Once the OS stops
-          showing its dialog, tapping this changed nothing and said nothing —
-          it looked like the app was broken. Now it explains where the setting
-          actually lives instead. */}
+      {/* Stays a pill. An earlier attempt put the full explanation inline here
+          and it became a wall of text across the map, clipped mid-sentence by
+          the tab bar — worse than the silence it replaced. The label only has
+          to say the button will not help and roughly why; the long version is
+          a console warning, because the one case that produces it (an insecure
+          dev origin) never happens in an installed app. */}
       {locationStatus !== 'granted' && hasPromptedForLocation === true && (
         <Pressable
           onPress={canAskAgain ? requestLocation : undefined}
@@ -95,13 +97,12 @@ export default function ExploreScreen() {
           style={({ pressed }) => [styles.locationButton, pressed && styles.pressed]}>
           <ThemedView type="backgroundElement" style={styles.locationPill}>
             <ThemedText type="smallBold">
-              {canAskAgain ? 'Show My Location' : unavailableReason ? 'Location unavailable' : 'Location blocked'}
+              {canAskAgain
+                ? 'Show My Location'
+                : unavailableReason
+                  ? 'Location needs https'
+                  : 'Location blocked · Settings'}
             </ThemedText>
-            {!canAskAgain && (
-              <ThemedText type="small" themeColor="textSecondary" style={styles.locationPillNote}>
-                {unavailableReason ?? 'Turn it on in Settings'}
-              </ThemedText>
-            )}
           </ThemedView>
         </Pressable>
       )}
@@ -209,17 +210,15 @@ const styles = StyleSheet.create({
   locationButton: {
     position: 'absolute',
     right: Spacing.three,
-    bottom: Spacing.four,
+    // Clears the bottom tab bar. At Spacing.four this sat underneath it and
+    // got clipped, which was only obvious once the pill grew taller than one
+    // line.
+    bottom: BottomTabInset + Spacing.three,
     zIndex: 1100,
   },
   locationPill: {
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     borderRadius: Radius.pill,
-  },
-  // The explanatory line is a sentence, not a label, so the pill has to stop
-  // being pill-shaped and wrap instead of running off the side of the map.
-  locationPillNote: {
-    maxWidth: 240,
   },
 });

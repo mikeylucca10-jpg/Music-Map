@@ -49,7 +49,7 @@ function getInsecureOriginWarning(): string | null {
   if (Platform.OS !== 'web') return null;
   if (typeof window === 'undefined') return null;
   if (window.isSecureContext) return null;
-  return 'Location needs a secure connection (https). It will work in the installed app — this only affects opening the dev server over your network.';
+  return 'Geolocation is blocked because this origin is not secure. Browsers allow it only over https or on localhost, so opening the dev server at http://<lan-ip> will never return a position. The installed app is unaffected.';
 }
 
 // Manages the app's own soft-ask ("Turn On Location" / "Not Now") separately
@@ -89,6 +89,10 @@ export function useUserLocation() {
       const insecure = getInsecureOriginWarning();
       if (insecure) {
         if (cancelled) return;
+        // The full explanation goes here rather than on screen. This only ever
+        // fires when the dev server is opened over the LAN, so it is a message
+        // for whoever is building the app, not for whoever is using it.
+        console.warn(`[location] ${insecure}`);
         setUnavailableReason(insecure);
         setCanAskAgain(false);
         setStatus('denied');
