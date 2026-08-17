@@ -1,21 +1,12 @@
 import { BlurView } from 'expo-blur';
 import { Tabs, TabList, TabTrigger, TabSlot, TabTriggerSlotProps, TabListProps } from 'expo-router/ui';
-import { SymbolView, SymbolViewProps } from 'expo-symbols';
 import { Pressable, View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { TabIcon, type TabIconName } from './tab-icons.web';
 import { ThemedText } from './themed-text';
 
 import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
-
-// This file only ever runs on web, so these are Material Symbol names
-// (matching the `md=` values used for the native tab bar's icons).
-const TAB_ICONS: Record<string, SymbolViewProps['name']> = {
-  home: { web: 'home' },
-  explore: { web: 'map' },
-  ask: { web: 'chat' },
-  settings: { web: 'settings' },
-};
 
 export default function AppTabs() {
   return (
@@ -41,7 +32,7 @@ export default function AppTabs() {
   );
 }
 
-type TabButtonProps = TabTriggerSlotProps & { icon: keyof typeof TAB_ICONS };
+type TabButtonProps = TabTriggerSlotProps & { icon: TabIconName };
 
 export function TabButton({ children, icon, isFocused, ...props }: TabButtonProps) {
   const colors = Colors.dark;
@@ -53,11 +44,7 @@ export function TabButton({ children, icon, isFocused, ...props }: TabButtonProp
           fill. `accent` only reaches ~4.4:1 on `background`, which fails AA at
           this size; `accentText` reaches 5.3:1. See the two-accent-token rule
           in CLAUDE.md. */}
-      <SymbolView
-        name={TAB_ICONS[icon]}
-        tintColor={isFocused ? colors.accentText : colors.textSecondary}
-        size={22}
-      />
+      <TabIcon name={icon} color={isFocused ? colors.accentText : colors.textSecondary} />
       <ThemedText
         type="small"
         style={{ color: isFocused ? colors.accentText : colors.textSecondary, fontSize: 11 }}>
