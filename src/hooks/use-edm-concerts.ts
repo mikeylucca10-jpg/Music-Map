@@ -40,10 +40,10 @@ async function fetchAllConcerts(city: City): Promise<Concert[]> {
 
 export function useEdmConcerts(city: City) {
   const fetcher = useCallback(() => fetchAllConcerts(city), [city]);
-  const { data, isLoading, error, refresh } = useCachedResource<Concert[]>(
+  const { data, isLoading, error, classifiedError, refresh } = useCachedResource<Concert[]>(
     `concerts-${city.id}`,
     fetcher,
   );
 
-  return { concerts: data ?? [], isLoading, error, refresh };
+  return { concerts: data ?? [], isLoading, error, classifiedError, refresh };
 }

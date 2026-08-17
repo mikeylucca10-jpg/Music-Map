@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { readCache, writeCache } from '@/lib/cache';
+import { classifyFetchError, type ClassifiedError } from '@/lib/errors';
 
 // Stale-while-revalidate: paints instantly from the last cached value (if
 // any), then refetches in the background and updates state + cache.
@@ -20,14 +21,20 @@ export function useCachedResource<T>(cacheKey: string, fetcher: () => Promise<T>
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [classified, setClassified] = useState<ClassifiedError | null>(null);
 
   const refresh = useCallback(async () => {
     try {
       const fresh = await fetcher();
       setState({ key: cacheKey, data: fresh });
       setError(null);
+      setClassified(null);
       writeCache(cacheKey, fresh);
     } catch (err) {
+      // Kept alongside the message so screens can tell "no connection" from
+      // "the server answered badly" from "this app is misconfigured" — three
+      // situations that need three different things from the user.
+      setClassified(classifyFetchError(err));
       setError(err instanceof Error ? err.message : 'Failed to load.');
     } finally {
       setIsLoading(false);
@@ -51,5 +58,5 @@ export function useCachedResource<T>(cacheKey: string, fetcher: () => Promise<T>
     };
   }, [cacheKey, refresh]);
 
-  return { data, isLoading, error, refresh };
+  return { data, isLoading, error, classifiedError: classified, refresh };
 }

@@ -27,7 +27,7 @@ import { CITIES, Concert, ConcertSummary } from '@/types/concert';
 // list took over as the landing screen and the carousel was dropped.
 export default function HomeScreen() {
   const [city, setCity] = useState(CITIES[0]);
-  const { concerts, isLoading, error, refresh } = useEdmConcerts(city);
+  const { concerts, isLoading, error, classifiedError, refresh } = useEdmConcerts(city);
   const {
     category,
     setCategory,
@@ -105,12 +105,25 @@ export default function HomeScreen() {
         </ThemedView>
       )}
 
-      {!isLoading && error && (
+      {/* Three distinct failures, three messages: no connection, a server that
+          answered badly, and an app missing its API key. The last one hides the
+          retry, because retrying cannot fix a missing key and offering it just
+          produces the same error again. */}
+      {!isLoading && error && classifiedError && (
         <ThemedView type="backgroundElement" style={styles.messageCard}>
-          <ThemedText type="small">{error}</ThemedText>
-          <Pressable onPress={refresh}>
-            <ThemedText type="linkPrimary">Retry</ThemedText>
-          </Pressable>
+          <ThemedText type="smallBold">{classifiedError.title}</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary" style={styles.messageBody}>
+            {classifiedError.body}
+          </ThemedText>
+          {classifiedError.retryable && (
+            <Pressable
+              onPress={refresh}
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading shows"
+              style={({ pressed }) => pressed && styles.pressed}>
+              <ThemedText type="linkPrimary">Try again</ThemedText>
+            </Pressable>
+          )}
         </ThemedView>
       )}
 
