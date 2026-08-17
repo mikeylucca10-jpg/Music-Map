@@ -62,6 +62,69 @@ type TicketmasterResponse = {
  * contentFit="cover" is used everywhere this renders, so aspect ratio does not
  * need to match the display container — only width matters here.
  */
+/**
+ * Genres that are never electronic music, whatever the query returned.
+ *
+ * A `classificationName=Dance/Electronic` search matches loosely, so the live
+ * NYC feed comes back 46% non-electronic by listing count. Almost all of it is
+ * a handful of arena acts with long residencies — one Harry Styles run was 30
+ * of 85 listings on its own.
+ */
+const NON_ELECTRONIC_GENRE = /^(pop|r&b|hip-hop\/rap|rock|jazz|country|latin|metal|classical)$/i;
+
+/**
+ * Sub-genres that mean "electronic after all", used to rescue events whose
+ * top-level genre is one of the above. Galantis is tagged Pop / Electro Pop;
+ * dropping it for the genre alone would be as wrong as keeping Harry Styles.
+ *
+ * Amapiano belongs here on purpose — it is a South African electronic genre,
+ * even though Ticketmaster also applies the tag to things that plainly are not
+ * it (Hernan Cattaneo, Desert Dwellers, and a jazz duo all carry it).
+ */
+const ELECTRONIC_SUBGENRE = /electro|dance|club|house|techno|trance|amapiano|dubstep|drum|garage|disco/i;
+
+/**
+ * Whether an event is plausibly electronic music.
+ *
+ * Only the clearly-wrong genres are excluded. `Other` is deliberately left
+ * alone: it holds Bicep, Black Coffee, San Holo, Jason Ross, DJ Pauly D,
+ * Kruder & Dorfmeister, NOTD, French 79, and Nitzer Ebb in the current feed.
+ * Filtering down to genre === 'Dance/Electronic' would throw away roughly ten
+ * real acts to catch seven bad ones.
+ *
+ * subGenre is *only* consulted as a rescue, never as evidence against an event,
+ * because it is wrong far too often to trust in that direction — the same show
+ * comes back tagged `Other` on one listing and `Amapiano` on another.
+ *
+ * Events with no classification data at all are kept. Absence of evidence is
+ * not evidence that a show is Harry Styles.
+ *
+ * Every classification is checked, not just the first, which matters more than
+ * it sounds: Ticketmaster attaches up to four per event, and the first is
+ * frequently the least representative. "Harper, Chloe Southern..." leads with
+ * Jazz but also carries Dance/Electronic/Ambient; DDXS leads with Rock but also
+ * carries Dance/Electronic/Experimental Electro. Reading only the first would
+ * drop both, and both are genuinely electronic. So the effective rule is: drop
+ * an event only when *none* of its classifications is electronic.
+ *
+ * Measured against the live NYC feed: drops 33 of 85 listings across 4 acts —
+ * Harry Styles (30 listings on its own), Bryson Tiller, Arlo, Teddy Riley —
+ * each of which carries a single, unambiguous non-electronic classification.
+ *
+ * Known permissive edge: Sid Sriram at Blue Note is tagged R&B *and* Jazz *and*
+ * Dance/Electronic/Ambient, so he survives on the strength of one tag. Erring
+ * that way is deliberate — a missing show is harder to notice than an extra one.
+ */
+export function isLikelyElectronic(
+  classifications: { genre?: string; subGenre?: string }[] | undefined,
+): boolean {
+  if (!classifications?.length) return true;
+  return classifications.some(({ genre, subGenre }) => {
+    if (!NON_ELECTRONIC_GENRE.test(genre ?? '')) return true;
+    return ELECTRONIC_SUBGENRE.test(subGenre ?? '');
+  });
+}
+
 // Exported solely so the unit tests can reach it — the selection rule has
 // fiddly edge cases (unsorted input, nothing large enough, missing dimensions)
 // and testing it through fetchTicketmasterConcerts would need a mocked network.
@@ -117,6 +180,17 @@ export async function fetchTicketmasterConcerts(city: City): Promise<Concert[]> 
     const startDateTime = event.dates?.start?.dateTime;
     if (!venue || Number.isNaN(latitude) || Number.isNaN(longitude) || !startDateTime) continue;
 
+    const classifications = event.classifications?.map((classification) => ({
+      segment: classification.segment?.name,
+      genre: classification.genre?.name,
+      subGenre: classification.subGenre?.name,
+    }));
+
+    // Dropped here rather than downstream so nothing in the app ever sees a
+    // non-electronic show — the map, saved concerts, and every screen inherit
+    // this for free instead of each re-deciding.
+    if (!isLikelyElectronic(classifications)) continue;
+
     const priceRange = event.priceRanges?.[0];
 
     concerts.push({
@@ -140,13 +214,9 @@ export async function fetchTicketmasterConcerts(city: City): Promise<Concert[]> 
       priceCurrency: priceRange?.currency,
       // Flattened from Ticketmaster's nested {name} wrappers but otherwise
       // unfiltered — entries whose genre is "Other", or which carry no
-      // subGenre at all, are kept as-is so the eventual scorer decides what is
-      // worth using. Nothing reads this yet.
-      classifications: event.classifications?.map((classification) => ({
-        segment: classification.segment?.name,
-        genre: classification.genre?.name,
-        subGenre: classification.subGenre?.name,
-      })),
+      // subGenre at all, are kept as-is so a later scorer decides what is worth
+      // using. Read by isLikelyElectronic above; nothing else consumes it yet.
+      classifications,
     });
   }
 

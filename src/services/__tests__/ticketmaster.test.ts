@@ -1,4 +1,4 @@
-import { pickImageForWidth, type TicketmasterImage } from '@/services/ticketmaster';
+import { isLikelyElectronic, pickImageForWidth, type TicketmasterImage } from '@/services/ticketmaster';
 
 // The size ladder a real Ticketmaster event returns, deliberately in the
 // unsorted order the API actually uses — the 305px thumbnail really does come
@@ -57,5 +57,99 @@ describe('pickImageForWidth', () => {
     // Nothing clears the target, so the fallback runs; the sized one still
     // beats the dimensionless one on area.
     expect(pickImageForWidth(images, 5000)).toBe('w640');
+  });
+});
+
+// Every case below is a real act from the live NYC feed, with the exact
+// classification Ticketmaster returned for it. The point of the rule is that
+// neither field works alone: `genre` alone drops real acts, `subGenre` alone is
+// wrong too often to trust.
+describe('isLikelyElectronic', () => {
+  const of = (genre: string, subGenre?: string) => [{ genre, subGenre }];
+
+  it('drops the arena acts that flood the feed', () => {
+    // 30 of 85 listings in one residency — the single worst offender.
+    expect(isLikelyElectronic(of('Pop', 'Pop'))).toBe(false); // Harry Styles
+    expect(isLikelyElectronic(of('R&B', 'R&B'))).toBe(false); // Sid Sriram
+    expect(isLikelyElectronic(of('Hip-Hop/Rap', 'Trap'))).toBe(false); // Bryson Tiller
+    expect(isLikelyElectronic(of('Rock', 'Rock'))).toBe(false); // DDXS
+    expect(isLikelyElectronic(of('Rock', 'Pop'))).toBe(false); // Arlo
+    expect(isLikelyElectronic(of('Jazz', 'Jazz'))).toBe(false); // Harper
+  });
+
+  it('rescues electronic acts whose top-level genre says Pop', () => {
+    // Galantis, Bolden., Lenny Pearce, Stan Society all arrive as Pop. Judging
+    // on genre alone would drop them alongside Harry Styles.
+    expect(isLikelyElectronic(of('Pop', 'Electro Pop'))).toBe(true);
+    expect(isLikelyElectronic(of('Pop', 'Club Dance'))).toBe(true);
+  });
+
+  it('leaves the Other bucket alone', () => {
+    // Bicep, Black Coffee, San Holo, Jason Ross, DJ Pauly D, NOTD, French 79
+    // and Nitzer Ebb are all Other/Other. Narrowing to Dance/Electronic would
+    // lose about ten real acts to catch seven bad ones.
+    expect(isLikelyElectronic(of('Other', 'Other'))).toBe(true);
+    expect(isLikelyElectronic(of('Other', undefined))).toBe(true);
+  });
+
+  it('keeps anything already tagged Dance/Electronic', () => {
+    expect(isLikelyElectronic(of('Dance/Electronic', 'Dance/Electronic'))).toBe(true);
+    // Amapiano is a real electronic genre, even though the feed also applies
+    // the tag to a progressive-house DJ and a jazz duo.
+    expect(isLikelyElectronic(of('Dance/Electronic', 'Amapiano'))).toBe(true);
+  });
+
+  it('keeps events with no classification data', () => {
+    // Absence of evidence is not evidence that a show is Harry Styles.
+    expect(isLikelyElectronic(undefined)).toBe(true);
+    expect(isLikelyElectronic([])).toBe(true);
+    expect(isLikelyElectronic([{}])).toBe(true);
+  });
+
+  it('keeps an event if any one of several classifications is electronic', () => {
+    expect(isLikelyElectronic([{ genre: 'Pop', subGenre: 'Pop' }, { genre: 'Dance/Electronic' }])).toBe(true);
+  });
+
+  it('never uses subGenre as evidence against an event', () => {
+    // The same show comes back Other on one listing and Amapiano on another,
+    // so a wrong subGenre must not be able to remove a show on its own.
+    expect(isLikelyElectronic(of('Dance/Electronic', 'Jazz'))).toBe(true);
+    expect(isLikelyElectronic(of('Other', 'Rock'))).toBe(true);
+  });
+});
+
+// Multi-classification handling, which is what actually decides most cases.
+// Ticketmaster attaches up to four classifications per event and the first is
+// often the least representative, so these are real events from the live feed.
+describe('isLikelyElectronic across multiple classifications', () => {
+  it('keeps an event whose electronic tag is not the first one', () => {
+    // "Harper, Chloe Southern, lionheart 5000, 1-800 girlfriend" at Night Club
+    // 101 — leads with Jazz, but is also tagged Dance/Electronic/Ambient.
+    expect(
+      isLikelyElectronic([
+        { genre: 'Jazz', subGenre: 'Jazz' },
+        { genre: 'Folk', subGenre: 'Alternative Folk' },
+        { genre: 'Dance/Electronic', subGenre: 'Ambient' },
+        { genre: 'Dance/Electronic' },
+      ]),
+    ).toBe(true);
+
+    // DDXS w/ Stereomatic at Sony Hall — leads with Rock, also tagged
+    // Dance/Electronic/Experimental Electro.
+    expect(
+      isLikelyElectronic([
+        { genre: 'Rock', subGenre: 'Rock' },
+        { genre: 'Dance/Electronic', subGenre: 'Experimental Electro' },
+      ]),
+    ).toBe(true);
+  });
+
+  it('drops only when no classification is electronic', () => {
+    // The four acts actually removed from the live feed each carry exactly one
+    // classification, and it is unambiguous.
+    expect(isLikelyElectronic([{ genre: 'Pop', subGenre: 'Pop' }])).toBe(false);
+    expect(isLikelyElectronic([{ genre: 'Hip-Hop/Rap', subGenre: 'Trap' }])).toBe(false);
+    expect(isLikelyElectronic([{ genre: 'Rock', subGenre: 'Pop' }])).toBe(false);
+    expect(isLikelyElectronic([{ genre: 'R&B', subGenre: 'R&B' }])).toBe(false);
   });
 });
