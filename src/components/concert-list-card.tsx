@@ -60,8 +60,12 @@ function ConcertListCardComponent({
     onToggleSave?.(concert);
   }
 
+  // allowFontScaling={false} because this is an icon, not text: at the largest
+  // OS font setting a 20pt glyph becomes ~60pt and is clipped by the fixed 36pt
+  // disc around it. Nothing is lost — the button's accessibilityLabel carries
+  // the meaning, and that is read at whatever size the user has chosen.
   const heartIcon = (
-    <ThemedText style={[styles.heart, isSaved && { color: theme.accentText }]}>
+    <ThemedText allowFontScaling={false} style={[styles.heart, isSaved && { color: theme.accentText }]}>
       {isSaved ? '♥' : '♡'}
     </ThemedText>
   );

@@ -87,7 +87,10 @@ export function ConcertDetailSheet({
                   accessibilityLabel={isSaved ? 'Remove from saved' : 'Save this show'}
                   accessibilityState={{ selected: isSaved, disabled: !!isSavePending }}
                   style={({ pressed }) => (pressed || isSavePending) && styles.pressed}>
-                  <ThemedText style={[styles.heart, isSaved && { color: theme.accentText }]}>
+                  {/* Icon, not text — see the same note in concert-list-card. */}
+                  <ThemedText
+                    allowFontScaling={false}
+                    style={[styles.heart, isSaved && { color: theme.accentText }]}>
                     {isSaved ? '♥' : '♡'}
                   </ThemedText>
                 </Pressable>
@@ -155,7 +158,12 @@ function TicketSourceRow({ source }: { source: TicketSource }) {
       <Pressable style={({ pressed }) => pressed && styles.pressed}>
         <ThemedView type="backgroundSelected" style={styles.sourceRow}>
           <View style={[styles.monogram, { backgroundColor: source.color }]}>
-            <ThemedText style={styles.monogramText}>{source.monogram}</ThemedText>
+            {/* A brand mark standing in for a logo inside a fixed 40pt tile,
+                so it does not scale. The source's name is spelled out in full
+                on the row beside it, at whatever size the user has set. */}
+            <ThemedText allowFontScaling={false} style={styles.monogramText}>
+              {source.monogram}
+            </ThemedText>
           </View>
           <View style={styles.sourceLabelColumn}>
             <ThemedText type="default">{source.label}</ThemedText>
