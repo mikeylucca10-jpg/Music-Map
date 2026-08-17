@@ -1,4 +1,5 @@
 import * as Location from 'expo-location';
+import { Platform } from 'react-native';
 import { useCallback, useEffect, useState } from 'react';
 
 import { readCache, writeCache } from '@/lib/cache';
@@ -31,6 +32,26 @@ async function getCurrentCoords() {
   }
 }
 
+/**
+ * Browsers expose `navigator.geolocation` only on a secure origin — HTTPS, or
+ * localhost. Everything else is refused outright, and it is not a permission
+ * the user can grant: the dialog never appears and the call simply fails.
+ *
+ * This bites exactly one situation, but it is the situation this app is
+ * developed in: opening the dev server from a phone over the LAN, at
+ * http://<lan-ip>:8081. Permission looks granted, no error surfaces, and the
+ * blue dot never appears — which reads as a broken feature rather than a
+ * platform rule.
+ *
+ * Native is unaffected; an installed app is not subject to secure-origin rules.
+ */
+function getInsecureOriginWarning(): string | null {
+  if (Platform.OS !== 'web') return null;
+  if (typeof window === 'undefined') return null;
+  if (window.isSecureContext) return null;
+  return 'Location needs a secure connection (https). It will work in the installed app — this only affects opening the dev server over your network.';
+}
+
 // Manages the app's own soft-ask ("Turn On Location" / "Not Now") separately
 // from the OS's hard permission dialog: requestLocation() only triggers the
 // real OS prompt once the user has already opted in through our UI.
@@ -52,10 +73,29 @@ export function useUserLocation() {
    * cannot work.
    */
   const [canAskAgain, setCanAskAgain] = useState(true);
+  /**
+   * Why location cannot work at all, when that is knowable up front — currently
+   * only the insecure-origin case. Distinct from a denial: there is nothing to
+   * grant, so the UI must explain rather than offer a retry.
+   */
+  const [unavailableReason, setUnavailableReason] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // Checked before anything else: on an insecure origin the permission
+      // APIs below either throw or resolve to a denial that no dialog can
+      // change, so neither the soft-ask nor a retry has anything to offer.
+      const insecure = getInsecureOriginWarning();
+      if (insecure) {
+        if (cancelled) return;
+        setUnavailableReason(insecure);
+        setCanAskAgain(false);
+        setStatus('denied');
+        setHasPrompted(true);
+        return;
+      }
+
       let choice: StoredChoice | null = null;
       let existingStatus: Location.PermissionStatus = Location.PermissionStatus.UNDETERMINED;
       try {
@@ -123,5 +163,5 @@ export function useUserLocation() {
     setStatus('denied');
   }, []);
 
-  return { status, coords, hasPrompted, canAskAgain, requestLocation, declineLocation };
+  return { status, coords, hasPrompted, canAskAgain, unavailableReason, requestLocation, declineLocation };
 }

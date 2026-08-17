@@ -53,6 +53,7 @@ export default function ExploreScreen() {
     coords: userLocation,
     hasPrompted: hasPromptedForLocation,
     canAskAgain,
+    unavailableReason,
     requestLocation,
     declineLocation,
   } = useUserLocation();
@@ -94,11 +95,11 @@ export default function ExploreScreen() {
           style={({ pressed }) => [styles.locationButton, pressed && styles.pressed]}>
           <ThemedView type="backgroundElement" style={styles.locationPill}>
             <ThemedText type="smallBold">
-              {canAskAgain ? 'Show My Location' : 'Location blocked'}
+              {canAskAgain ? 'Show My Location' : unavailableReason ? 'Location unavailable' : 'Location blocked'}
             </ThemedText>
             {!canAskAgain && (
-              <ThemedText type="small" themeColor="textSecondary">
-                Turn it on in Settings
+              <ThemedText type="small" themeColor="textSecondary" style={styles.locationPillNote}>
+                {unavailableReason ?? 'Turn it on in Settings'}
               </ThemedText>
             )}
           </ThemedView>
@@ -215,5 +216,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     borderRadius: Radius.pill,
+  },
+  // The explanatory line is a sentence, not a label, so the pill has to stop
+  // being pill-shaped and wrap instead of running off the side of the map.
+  locationPillNote: {
+    maxWidth: 240,
   },
 });
