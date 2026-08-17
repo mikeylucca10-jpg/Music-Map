@@ -154,10 +154,17 @@ export function NightDensityStrip({
               accessibilityState={{ selected: isSelected, disabled: night.count === 0 && !isSelected }}
               style={({ pressed }) => [
                 styles.night,
-                // A resting background on the whole column, so what is tappable
-                // is the column rather than the 8pt bar it happens to contain.
-                (isSelected || night.count > 0) && { backgroundColor: theme.backgroundElement },
-                isSelected && { backgroundColor: theme.backgroundSelected },
+                // Every night is a box, including empty ones. Painting only the
+                // nights with shows left ragged gaps in the row and made the
+                // strip read as scattered bars rather than seven days you can
+                // press. Empty ones are dimmed instead of hidden — still
+                // legible as a day, still obviously not offering anything.
+                { backgroundColor: theme.backgroundElement },
+                night.count === 0 && !isSelected && styles.nightEmpty,
+                isSelected && {
+                  backgroundColor: theme.backgroundSelected,
+                  borderColor: theme.accent,
+                },
                 pressed && styles.pressed,
               ]}>
               <ThemedText
@@ -236,8 +243,15 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     gap: Spacing.half,
     paddingVertical: Spacing.two,
-    marginHorizontal: 1,
+    marginHorizontal: 2,
     borderRadius: Radius.card,
+    // Transparent by default so the selected state can turn it on without the
+    // box resizing by two pixels when it does.
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  nightEmpty: {
+    opacity: 0.4,
   },
   weekdayInitial: {
     letterSpacing: 0,
