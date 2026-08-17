@@ -58,9 +58,15 @@ const styles = StyleSheet.create({
     lineHeight: Fonts.lineHeight.base,
     fontWeight: Fonts.weight.medium,
   },
-  // The display face is confined to `title` and `subtitle` — the two largest
-  // steps. Archivo Expanded is wide and heavy by design; at body sizes it stops
-  // being characterful and just becomes hard to read.
+  // The display face is confined to `title` and `subtitle`. Archivo Expanded is
+  // wide and heavy by design; at body sizes it stops being characterful and
+  // just becomes hard to read.
+  //
+  // Note this reaches further than "the two largest steps" implies: concert
+  // card titles use `subtitle`, so they render in the display face at 19px via
+  // the card's own `overlayTitle` size override. That is deliberate — a show
+  // name on poster art is the most marquee-like text in the app, and it is
+  // exactly where the face earns its keep.
   title: {
     fontFamily: Fonts.display,
     fontSize: Fonts.size.xxl,
