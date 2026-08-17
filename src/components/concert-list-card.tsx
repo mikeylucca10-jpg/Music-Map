@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -21,10 +22,11 @@ const HEART_BUTTON_SIZE = 36;
 
 type ConcertListCardProps = {
   concert: ConcertSummary;
-  onPress?: () => void;
+  /** Receives the concert so callers can hoist one stable handler for the list. */
+  onPress?: (concert: ConcertSummary) => void;
   isSaved?: boolean;
   isSavePending?: boolean;
-  onToggleSave?: () => void;
+  onToggleSave?: (concert: ConcertSummary) => void;
   /** Fixed width — use inside a horizontal carousel (e.g. Home's featured row). */
   width?: number;
   /** Precomputed (not raw coordinates — ConcertSummary intentionally omits
@@ -33,7 +35,16 @@ type ConcertListCardProps = {
   distanceLabel?: string;
 };
 
-export function ConcertListCard({
+/**
+ * Memoized: every row re-rendered on any parent state change before this,
+ * because the list rebuilt an inline arrow per card on every pass.
+ *
+ * The memo only pays off if callers pass *stable* callbacks, which is why
+ * `onPress` and `onToggleSave` receive the concert rather than closing over it
+ * — a parent can now hoist one `useCallback` for the whole list instead of
+ * minting a fresh closure per row. Every other prop compares by value.
+ */
+function ConcertListCardComponent({
   concert,
   onPress,
   isSaved,
@@ -46,7 +57,7 @@ export function ConcertListCard({
 
   function handleToggleSave() {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onToggleSave?.();
+    onToggleSave?.(concert);
   }
 
   const heartIcon = (
@@ -146,7 +157,7 @@ export function ConcertListCard({
       accessibilityRole="button"
       accessibilityLabel={`${concert.name} at ${concert.venueName}`}
       accessibilityHint="Opens show details and ticket options"
-      onPress={onPress}
+      onPress={() => onPress(concert)}
       style={({ pressed }) => pressed && styles.pressed}>
       {card}
     </Pressable>
@@ -233,3 +244,5 @@ const styles = StyleSheet.create({
     opacity: 0.75,
   },
 });
+
+export const ConcertListCard = memo(ConcertListCardComponent);

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 
 import { ConcertDetailSheet } from '@/components/concert-detail-sheet';
@@ -20,7 +20,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { getDirectionsUrl } from '@/lib/directions';
 import { formatConcertDateTime } from '@/lib/format-date';
 import { distanceLabelFor } from '@/lib/geo';
-import { CITIES, Concert } from '@/types/concert';
+import { CITIES, Concert, ConcertSummary } from '@/types/concert';
 
 // This is the full concert list — it used to live at /list while Home showed
 // a featured carousel of the same shows. The two were near-duplicates, so the
@@ -57,6 +57,24 @@ export default function HomeScreen() {
   // Read-only here — this screen doesn't render the permission prompt (only
   // Explore does), it just picks up the coords if already granted.
   const { coords: userLocation } = useUserLocation();
+
+  // Hoisted so every row shares one function identity. Each card previously got
+  // a freshly minted arrow on every render, which would defeat ConcertListCard's
+  // memo no matter what else stayed equal.
+  //
+  // The card only knows ConcertSummary, which deliberately carries no
+  // coordinates, but the detail sheet needs the full Concert for distance and
+  // directions — so recover it by id rather than casting the summary back up.
+  const handleSelectConcert = useCallback(
+    (summary: ConcertSummary) => {
+      setSelectedConcert(concerts.find((concert) => concert.id === summary.id) ?? null);
+    },
+    [concerts],
+  );
+  const handleToggleSave = useCallback(
+    (concert: ConcertSummary) => toggleSave(concert),
+    [toggleSave],
+  );
 
   return (
     <ScreenScaffold title="Music Map" subtitle={`Live shows in ${city.label}.`}>
@@ -136,10 +154,10 @@ export default function HomeScreen() {
           <ConcertListCard
             key={concert.id}
             concert={concert}
-            onPress={() => setSelectedConcert(concert)}
+            onPress={handleSelectConcert}
             isSaved={session ? isSaved(concert.id) : undefined}
             isSavePending={session ? isSavePending(concert.id) : undefined}
-            onToggleSave={session ? () => toggleSave(concert) : undefined}
+            onToggleSave={session ? handleToggleSave : undefined}
             distanceLabel={distanceLabelFor(userLocation, concert)}
           />
         ))}

@@ -1,6 +1,6 @@
 import { Link } from 'expo-router';
-import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { ConcertDetailSheet } from '@/components/concert-detail-sheet';
 import { ConcertListCard } from '@/components/concert-list-card';
@@ -16,6 +16,21 @@ import { useTheme } from '@/hooks/use-theme';
 import { CITIES, SavedConcert } from '@/types/concert';
 
 const SAVED_CARD_WIDTH = 170;
+
+/**
+ * One card plus the gap between cards. getItemLayout works in absolute offsets,
+ * so the row's `gap` has to be part of the stride or every card past the first
+ * is reported at the wrong position and the scroller jumps when it corrects.
+ */
+const SAVED_CARD_STRIDE = SAVED_CARD_WIDTH + Spacing.three;
+
+const keyExtractor = (concert: SavedConcert) => concert.id;
+
+const getSavedItemLayout = (_data: ArrayLike<SavedConcert> | null | undefined, index: number) => ({
+  length: SAVED_CARD_WIDTH,
+  offset: SAVED_CARD_STRIDE * index,
+  index,
+});
 
 export default function SettingsScreen() {
   const { session, isLoading, error, isSupabaseConfigured, signIn, signUp, signOut, resetPassword } =
@@ -39,6 +54,22 @@ export default function SettingsScreen() {
   const [resetEmailSent, setResetEmailSent] = useState<string | null>(null);
   const [selectedConcert, setSelectedConcert] = useState<SavedConcert | null>(null);
   const theme = useTheme();
+
+  // Stable identities so ConcertListCard's memo actually holds across renders
+  // of this screen — it re-renders on every keystroke in the name field.
+  const renderSavedConcert = useCallback(
+    ({ item }: { item: SavedConcert }) => (
+      <ConcertListCard
+        concert={item}
+        width={SAVED_CARD_WIDTH}
+        onPress={setSelectedConcert}
+        isSaved
+        isSavePending={isSavePending(item.id)}
+        onToggleSave={toggleSave}
+      />
+    ),
+    [isSavePending, toggleSave],
+  );
 
   async function submit() {
     setIsSubmitting(true);
@@ -195,19 +226,23 @@ export default function SettingsScreen() {
               No saved concerts yet. Tap the heart on a show in Explore or List to save it.
             </ThemedText>
           ) : (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.savedRow}>
-              {savedConcerts.map((concert) => (
-                <ConcertListCard
-                  key={concert.id}
-                  concert={concert}
-                  width={SAVED_CARD_WIDTH}
-                  onPress={() => setSelectedConcert(concert)}
-                  isSaved
-                  isSavePending={isSavePending(concert.id)}
-                  onToggleSave={() => toggleSave(concert)}
-                />
-              ))}
-            </ScrollView>
+            /* The one genuinely unbounded list in the app — saved-concerts has
+               no query limit, so a heavy user's row grows without ceiling.
+               Horizontal FlatList inside the vertical ScreenScaffold scroller
+               is fine: the nesting warning is about two scrollers sharing an
+               axis, and these are perpendicular. Card width is fixed here, so
+               getItemLayout applies and scrolling skips measurement entirely. */
+            <FlatList
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.savedRow}
+              data={savedConcerts}
+              keyExtractor={keyExtractor}
+              getItemLayout={getSavedItemLayout}
+              renderItem={renderSavedConcert}
+              initialNumToRender={4}
+              windowSize={5}
+            />
           )}
         </ThemedView>
       )}
