@@ -20,9 +20,7 @@ export default function AppTabs() {
           <TabTrigger name="explore" href="/explore" asChild>
             <TabButton icon="explore">Explore</TabButton>
           </TabTrigger>
-          <TabTrigger name="ask" href="/ask" asChild>
-            <TabButton icon="ask">Ask</TabButton>
-          </TabTrigger>
+          {/* No Ask trigger — see the note in app-tabs.tsx. */}
           <TabTrigger name="settings" href="/settings" asChild>
             <TabButton icon="settings">Settings</TabButton>
           </TabTrigger>

@@ -7,7 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
 import { Category } from '@/hooks/use-concerts-filters';
-import { formatDateKeyLabel, getNycDateKey } from '@/lib/format-date';
+import { formatDateKeyLabel } from '@/lib/format-date';
 import { City } from '@/types/concert';
 
 type ConcertsFilterBarProps = {
@@ -55,7 +55,11 @@ export function ConcertsFilterBar({
   const [cityMenuOpen, setCityMenuOpen] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [filtersMenuOpen, setFiltersMenuOpen] = useState(false);
-  const selectedDateLabel = formatDateKeyLabel(selectedDateKey ?? getNycDateKey(new Date()));
+  // "Any night" rather than today's date when nothing is picked. The pill used
+  // to default to today, which openly contradicted the strip beside it — the
+  // pill would read "Sun, Aug 16" while the strip showed Aug 24–30. Today's
+  // date is not the filter state; no filter is, and the label should say so.
+  const selectedDateLabel = selectedDateKey ? formatDateKeyLabel(selectedDateKey) : 'Any night';
   const selectedBorough = city.boroughs?.find((borough) => borough.id === selectedBoroughId);
   const cityPillLabel = selectedBorough?.label ?? city.label;
 

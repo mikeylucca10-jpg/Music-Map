@@ -56,12 +56,15 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: MaxContentWidth,
   },
+  // Tightened from 24/16 to 16/8. On a 393pt screen the old header plus the
+  // filter pills and the night strip pushed the first card almost entirely
+  // below the fold, so the landing screen led with chrome rather than shows.
   titleContainer: {
     gap: Spacing.one,
     alignSelf: 'stretch',
     paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.four,
-    paddingBottom: Spacing.three,
+    paddingTop: Spacing.three,
+    paddingBottom: Spacing.two,
   },
   centerText: {},
 });

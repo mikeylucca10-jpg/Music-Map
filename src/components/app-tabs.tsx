@@ -30,11 +30,10 @@ export default function AppTabs() {
         />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="ask">
-        <NativeTabs.Trigger.Label>Ask</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="bubble.left" md="chat" />
-      </NativeTabs.Trigger>
-
+      {/* No Ask trigger. The route still exists and is still reachable, it just
+          isn't a tab — same as reset-password, privacy-policy, and terms. Its
+          Edge Function was never deployed, so a tab would have led to a screen
+          that could only fail. */}
       <NativeTabs.Trigger name="settings">
         <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="gearshape" md="settings" />
