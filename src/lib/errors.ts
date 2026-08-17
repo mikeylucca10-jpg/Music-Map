@@ -38,7 +38,16 @@ export function classifyFetchError(error: unknown): ClassifiedError {
 
   // Thrown by the services themselves when an env var is absent. Retrying is
   // pointless until the app is reconfigured, so the UI should not invite it.
-  if (/missing .*api[_ ]?key|isn't configured|is not configured/i.test(message)) {
+  //
+  // The SCREAMING_SNAKE branch matters as much as the "api key" one: since
+  // concerts moved behind an Edge Function, the client-side failure is
+  // "Missing EXPO_PUBLIC_SUPABASE_URL", which contains no mention of a key and
+  // would otherwise be classified as a retryable server failure.
+  if (
+    /missing [A-Z][A-Z0-9_]{5,}|missing .*api[_ ]?key|isn't configured|is not configured/i.test(
+      message,
+    )
+  ) {
     return {
       kind: 'config',
       title: 'Shows aren’t set up yet',

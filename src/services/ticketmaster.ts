@@ -1,7 +1,6 @@
 import { PosterDisplayWidth, PosterImageScale } from '@/constants/theme';
 import { City, Concert } from '@/types/concert';
 
-const DISCOVERY_EVENTS_URL = 'https://app.ticketmaster.com/discovery/v2/events.json';
 
 /** Source pixels to ask for. Both inputs live in constants/theme.ts. */
 const POSTER_TARGET_WIDTH = PosterDisplayWidth * PosterImageScale;
@@ -42,26 +41,6 @@ type TicketmasterResponse = {
   _embedded?: { events?: TicketmasterEvent[] };
 };
 
-/**
- * Smallest image that still covers the target width, falling back to the
- * largest available when nothing reaches it.
- *
- * Ticketmaster's images array is not sorted by size — a 305x225 thumbnail can
- * sit ahead of a 2426x1365 original in the same response — so images[0] is
- * often the worst option rather than a sensible default. The previous rule
- * corrected for that by always taking the *largest*, which overshot badly: a
- * 2426px source (537 KB measured) rendering into a card about 360pt wide.
- *
- * A typical ladder here is 100 / 205 / 305 / 424 / 640 / 1024 / 1136 / 2048 /
- * 2426, so at a 720px target this lands on 1024 — about 157 KB, roughly 70%
- * less, with more pixels than a 3x phone can show at this display size.
- *
- * The anti-thumbnail property is preserved: sub-target candidates are never
- * chosen while any candidate clears the target.
- *
- * contentFit="cover" is used everywhere this renders, so aspect ratio does not
- * need to match the display container — only width matters here.
- */
 /**
  * Genres that are never electronic music, whatever the query returned.
  *
@@ -125,9 +104,30 @@ export function isLikelyElectronic(
   });
 }
 
-// Exported solely so the unit tests can reach it — the selection rule has
-// fiddly edge cases (unsorted input, nothing large enough, missing dimensions)
-// and testing it through fetchTicketmasterConcerts would need a mocked network.
+/**
+ * Smallest image that still covers the target width, falling back to the
+ * largest available when nothing reaches it.
+ *
+ * Ticketmaster's images array is not sorted by size — a 305x225 thumbnail can
+ * sit ahead of a 2426x1365 original in the same response — so images[0] is
+ * often the worst option rather than a sensible default. The previous rule
+ * corrected for that by always taking the *largest*, which overshot badly: a
+ * 2426px source (537 KB measured) rendering into a card about 360pt wide.
+ *
+ * A typical ladder here is 100 / 205 / 305 / 424 / 640 / 1024 / 1136 / 2048 /
+ * 2426, so at a 720px target this lands on 1024 — about 157 KB, roughly 70%
+ * less, with more pixels than a 3x phone can show at this display size.
+ *
+ * The anti-thumbnail property is preserved: sub-target candidates are never
+ * chosen while any candidate clears the target.
+ *
+ * contentFit="cover" is used everywhere this renders, so aspect ratio does not
+ * need to match the display container — only width matters here.
+ *
+ * Exported solely so the unit tests can reach it — the edge cases (unsorted
+ * input, nothing large enough, missing dimensions) would otherwise need a
+ * mocked network to exercise.
+ */
 export function pickImageForWidth(
   images: TicketmasterImage[] | undefined,
   targetWidth: number,
@@ -145,28 +145,39 @@ export function pickImageForWidth(
   return (smallestSufficient ?? largest).url;
 }
 
+/**
+ * Fetches through the `concerts` Edge Function rather than calling Ticketmaster
+ * directly, so the API key never enters the client bundle.
+ *
+ * Only the network call moved. Normalisation, image selection and the
+ * electronic-genre filter all still run here, which keeps them under the unit
+ * tests they already have and keeps the Edge Function a dumb pipe — the less
+ * logic that lives somewhere requiring a deploy to change, the better.
+ */
 export async function fetchTicketmasterConcerts(city: City): Promise<Concert[]> {
-  const apiKey = process.env.EXPO_PUBLIC_TICKETMASTER_API_KEY;
-  if (!apiKey) {
+  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl) {
     throw new Error(
-      'Missing EXPO_PUBLIC_TICKETMASTER_API_KEY. Get a free key at developer.ticketmaster.com and add it to .env.local.',
+      'Missing EXPO_PUBLIC_SUPABASE_URL. Concerts are fetched through a Supabase Edge Function — copy .env.example to .env.local and fill it in.',
     );
   }
 
-  const params = new URLSearchParams({
-    apikey: apiKey,
-    city: city.ticketmasterCity,
-    stateCode: city.ticketmasterStateCode,
-    countryCode: city.ticketmasterCountryCode,
-    classificationName: 'Dance/Electronic',
-    startDateTime: `${new Date().toISOString().split('.')[0]}Z`,
-    sort: 'date,asc',
-    size: '100',
+  const endpoint = `${supabaseUrl}/functions/v1/concerts?cityId=${encodeURIComponent(city.id)}`;
+  const response = await fetch(endpoint, {
+    // The anon key is designed to be public and is required by the Functions
+    // gateway; unlike the Ticketmaster key it grants nothing on its own.
+    headers: { Authorization: `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? ''}` },
   });
 
-  const response = await fetch(`${DISCOVERY_EVENTS_URL}?${params.toString()}`);
   if (!response.ok) {
-    throw new Error(`Ticketmaster request failed (${response.status})`);
+    // Surface the function's own message when it sent one — it distinguishes a
+    // missing server-side key (a config problem, no retry) from an upstream
+    // failure (retryable), which classifyFetchError then reads.
+    const message = await response
+      .json()
+      .then((body: { error?: string }) => body?.error)
+      .catch(() => null);
+    throw new Error(message ?? `Ticketmaster request failed (${response.status})`);
   }
 
   const data: TicketmasterResponse = await response.json();

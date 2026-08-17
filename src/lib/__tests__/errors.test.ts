@@ -59,3 +59,33 @@ describe('classifyFetchError', () => {
     }
   });
 });
+
+// Added when concerts moved behind an Edge Function. The client-side config
+// failure changed shape from "Missing ..._API_KEY" to "Missing
+// EXPO_PUBLIC_SUPABASE_URL", which mentions no key at all and would otherwise
+// be treated as a retryable server failure.
+describe('classifyFetchError on env-var config failures', () => {
+  it('recognises a missing SUPABASE_URL as config, not a failed request', () => {
+    const result = classifyFetchError(
+      new Error(
+        'Missing EXPO_PUBLIC_SUPABASE_URL. Concerts are fetched through a Supabase Edge Function — copy .env.example to .env.local and fill it in.',
+      ),
+    );
+    expect(result.kind).toBe('config');
+    expect(result.retryable).toBe(false);
+  });
+
+  it('recognises the server-side key message the Edge Function returns', () => {
+    const result = classifyFetchError(
+      new Error('Missing TICKETMASTER_API_KEY. Set it with: supabase secrets set'),
+    );
+    expect(result.kind).toBe('config');
+    expect(result.retryable).toBe(false);
+  });
+
+  it('does not mistake ordinary prose for a config error', () => {
+    // "missing" alone must not trigger it — only a missing NAMED variable.
+    expect(classifyFetchError(new Error('The response was missing a body')).kind).toBe('failed');
+    expect(classifyFetchError(new Error('missing data')).kind).toBe('failed');
+  });
+});
