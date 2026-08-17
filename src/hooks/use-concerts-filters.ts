@@ -177,6 +177,41 @@ export function useConcertsFilters(concerts: Concert[], city: City) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [concerts, category, selectedBorough, weekOffset]);
 
+  /**
+   * The soonest show *after* the visible window, when the window itself is
+   * empty — so an empty week can offer a way out instead of dead-ending.
+   *
+   * Deliberately not auto-advanced to. Jumping the user forward on load would
+   * mean the screen shows one week while the rest of the UI still says another,
+   * and it fights anyone who paged back to an empty week on purpose. "Nothing
+   * on this week" is a real answer; it just needs an exit next to it.
+   *
+   * Honours category and borough, so the offer never points at a show the
+   * current filters would immediately hide.
+   */
+  const nextShowAhead = useMemo(() => {
+    const now = new Date();
+    const { weekEnd } = getWeekWindow(weekOffset, now);
+
+    let soonest: Concert | null = null;
+    for (const concert of concerts) {
+      if (!matchesCategory(concert, category, now, weekOffset)) continue;
+      if (selectedBorough && !isWithinBorough(concert, selectedBorough)) continue;
+      const date = new Date(concert.startDateTime);
+      if (date <= weekEnd) continue;
+      if (!soonest || date < new Date(soonest.startDateTime)) soonest = concert;
+    }
+    if (!soonest) return null;
+
+    // How many weeks forward that show sits, so the jump is one setWeekOffset.
+    const { weekStart: currentStart } = getWeekWindow(0, now);
+    const showDate = new Date(soonest.startDateTime);
+    const weeksAhead = Math.floor(
+      (showDate.getTime() - currentStart.getTime()) / (7 * 24 * 60 * 60 * 1000),
+    );
+    return { concert: soonest, weekOffset: Math.min(MAX_WEEKS_AHEAD, Math.max(0, weeksAhead)) };
+  }, [concerts, category, selectedBorough, weekOffset]);
+
   const filteredConcerts = useMemo(() => {
     // Deliberately not a dependency: a fresh Date() here would otherwise
     // need to be a memo dependency, which — being a new object identity
@@ -218,6 +253,13 @@ export function useConcertsFilters(concerts: Concert[], city: City) {
     // changed or cleared.
     weekNavRelevant: category !== 'Pop-ups',
     weekNights,
+    nextShowAhead,
+    /**
+     * True when filters are the reason nothing is showing, rather than the
+     * dataset being empty. Lets the empty state say which it is instead of
+     * claiming there are no shows when 85 of them are loaded.
+     */
+    hasAnyConcerts: concerts.length > 0,
     filteredConcerts,
   };
 }

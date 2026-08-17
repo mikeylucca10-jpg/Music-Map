@@ -8,7 +8,7 @@ import { ScreenScaffold } from '@/components/screen-scaffold';
 import { SkeletonCardRow } from '@/components/skeleton-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useApplyDefaultCity } from '@/hooks/use-apply-default-city';
 import { useAuth } from '@/hooks/use-auth';
 import { useConcertsFilters } from '@/hooks/use-concerts-filters';
@@ -16,7 +16,9 @@ import { useEdmConcerts } from '@/hooks/use-edm-concerts';
 import { useProfile } from '@/hooks/use-profile';
 import { useSavedConcerts } from '@/hooks/use-saved-concerts';
 import { useUserLocation } from '@/hooks/use-user-location';
+import { useTheme } from '@/hooks/use-theme';
 import { getDirectionsUrl } from '@/lib/directions';
+import { formatConcertDateTime } from '@/lib/format-date';
 import { distanceLabelFor } from '@/lib/geo';
 import { CITIES, Concert } from '@/types/concert';
 
@@ -42,8 +44,11 @@ export default function HomeScreen() {
     weekNavRelevant,
     setWeekOffset,
     weekNights,
+    nextShowAhead,
+    hasAnyConcerts,
     filteredConcerts,
   } = useConcertsFilters(concerts, city);
+  const theme = useTheme();
   const { session } = useAuth();
   const { profile } = useProfile(session?.user.id ?? null);
   useApplyDefaultCity(profile, setCity);
@@ -91,11 +96,38 @@ export default function HomeScreen() {
         </ThemedView>
       )}
 
+      {/* Never claims there are no shows while the dataset holds some — the
+          previous copy said "No upcoming EDM shows found right now" on a week
+          with nothing on it, while 85 upcoming shows were loaded. An empty
+          week now says so, and offers the soonest show as a one-tap jump
+          rather than dead-ending. */}
       {!isLoading && !error && filteredConcerts.length === 0 && (
         <ThemedView type="backgroundElement" style={styles.messageCard}>
-          <ThemedText type="small" themeColor="textSecondary">
-            No upcoming EDM shows found right now.
+          <ThemedText type="smallBold">
+            {hasAnyConcerts ? 'Nothing on this week' : 'No shows loaded yet'}
           </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary" style={styles.messageBody}>
+            {hasAnyConcerts
+              ? nextShowAhead
+                ? 'This week is quiet. The next show is:'
+                : 'Nothing matches these filters. Try another week, borough, or category.'
+              : 'Pull to refresh, or check back shortly.'}
+          </ThemedText>
+          {nextShowAhead && (
+            <Pressable
+              onPress={() => setWeekOffset(nextShowAhead.weekOffset)}
+              accessibilityRole="button"
+              accessibilityLabel={`Jump to ${formatConcertDateTime(nextShowAhead.concert.startDateTime)}, ${nextShowAhead.concert.name}`}
+              style={({ pressed }) => [
+                styles.jumpButton,
+                { backgroundColor: theme.accent },
+                pressed && styles.pressed,
+              ]}>
+              <ThemedText type="smallBold" style={{ color: theme.accentInk }}>
+                {formatConcertDateTime(nextShowAhead.concert.startDateTime)}
+              </ThemedText>
+            </Pressable>
+          )}
         </ThemedView>
       )}
 
@@ -134,6 +166,18 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.three,
     padding: Spacing.four,
     alignItems: 'center',
+  },
+  messageBody: {
+    textAlign: 'center',
+  },
+  jumpButton: {
+    marginTop: Spacing.one,
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.two,
+    borderRadius: Radius.pill,
+  },
+  pressed: {
+    opacity: 0.75,
   },
   list: {
     gap: Spacing.three,
