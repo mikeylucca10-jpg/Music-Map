@@ -145,10 +145,21 @@ export function NightDensityStrip({
               // its own filter without sending the user to the date sheet.
               onPress={() => onSelectDateKey(isSelected ? null : night.dateKey)}
               disabled={night.count === 0 && !isSelected}
+              // Vertical slop only. Widening the touch box sideways would make
+              // neighbouring nights overlap, which turns a near-miss into the
+              // wrong day rather than no-op — worse than missing.
+              hitSlop={{ top: 10, bottom: 10, left: 0, right: 0 }}
               accessibilityRole="button"
               accessibilityLabel={label}
               accessibilityState={{ selected: isSelected, disabled: night.count === 0 && !isSelected }}
-              style={({ pressed }) => [styles.night, pressed && styles.pressed]}>
+              style={({ pressed }) => [
+                styles.night,
+                // A resting background on the whole column, so what is tappable
+                // is the column rather than the 8pt bar it happens to contain.
+                (isSelected || night.count > 0) && { backgroundColor: theme.backgroundElement },
+                isSelected && { backgroundColor: theme.backgroundSelected },
+                pressed && styles.pressed,
+              ]}>
               <ThemedText
                 type="eyebrow"
                 themeColor={isSelected ? 'text' : 'textSecondary'}
@@ -214,15 +225,19 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   // flex:1 splits the row seven ways rather than assuming a device width. At
-  // 393pt that lands near 44 per column; hitSlop covers the remainder on
-  // narrower screens.
+  // 393pt that lands near 44 per column, and the taller padding below pushes
+  // the box well past MinTouchTarget vertically, which is the axis a thumb
+  // actually misses on — the columns are only as wide as a seventh of the
+  // screen no matter what.
   night: {
     flex: 1,
     minHeight: MinTouchTarget,
     alignItems: 'center',
     justifyContent: 'flex-end',
     gap: Spacing.half,
-    paddingVertical: Spacing.one,
+    paddingVertical: Spacing.two,
+    marginHorizontal: 1,
+    borderRadius: Radius.card,
   },
   weekdayInitial: {
     letterSpacing: 0,
@@ -231,8 +246,10 @@ const styles = StyleSheet.create({
     height: BAR_MAX_HEIGHT,
     justifyContent: 'flex-end',
   },
+  // Wider than the original 8pt: at arm's length on a phone the bar is the
+  // thing the eye aims at, even though the whole column is what accepts the tap.
   bar: {
-    width: Spacing.two,
+    width: 12,
     borderRadius: Radius.pill,
   },
   dayNumber: {
