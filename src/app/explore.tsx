@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -52,9 +52,21 @@ export default function ExploreScreen() {
     status: locationStatus,
     coords: userLocation,
     hasPrompted: hasPromptedForLocation,
+    canAskAgain,
     requestLocation,
     declineLocation,
   } = useUserLocation();
+
+  // The soft-ask used to slide up the instant the stored choice resolved, which
+  // meant a sheet covering the screen before the map had painted — an ambush
+  // rather than a question, and with no visible map there was nothing to
+  // explain why location was being asked for. A short beat lets the map render
+  // first, so the ask arrives with its own context behind it.
+  const [mapSettled, setMapSettled] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setMapSettled(true), 1200);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <ThemedView style={styles.container}>
@@ -65,12 +77,30 @@ export default function ExploreScreen() {
         userLocation={userLocation}
       />
 
+      {/* Only offered while asking can still do something. Once the OS stops
+          showing its dialog, tapping this changed nothing and said nothing —
+          it looked like the app was broken. Now it explains where the setting
+          actually lives instead. */}
       {locationStatus !== 'granted' && hasPromptedForLocation === true && (
         <Pressable
-          onPress={requestLocation}
+          onPress={canAskAgain ? requestLocation : undefined}
+          disabled={!canAskAgain}
+          accessibilityRole={canAskAgain ? 'button' : 'text'}
+          accessibilityLabel={
+            canAskAgain
+              ? 'Show my location on the map'
+              : 'Location is blocked. Enable it for this app in your device settings.'
+          }
           style={({ pressed }) => [styles.locationButton, pressed && styles.pressed]}>
           <ThemedView type="backgroundElement" style={styles.locationPill}>
-            <ThemedText type="smallBold">Show My Location</ThemedText>
+            <ThemedText type="smallBold">
+              {canAskAgain ? 'Show My Location' : 'Location blocked'}
+            </ThemedText>
+            {!canAskAgain && (
+              <ThemedText type="small" themeColor="textSecondary">
+                Turn it on in Settings
+              </ThemedText>
+            )}
           </ThemedView>
         </Pressable>
       )}
@@ -131,7 +161,7 @@ export default function ExploreScreen() {
       />
 
       <LocationPermissionPrompt
-        visible={hasPromptedForLocation === false}
+        visible={hasPromptedForLocation === false && mapSettled}
         onAllow={requestLocation}
         onDeny={declineLocation}
       />

@@ -40,6 +40,18 @@ export function useUserLocation() {
   // null while still loading from storage/OS — callers should treat that as
   // "not yet known" rather than "should prompt".
   const [hasPrompted, setHasPrompted] = useState<boolean | null>(null);
+  /**
+   * False once the OS or browser has stopped offering the permission dialog —
+   * after a hard denial it silently resolves every request as denied without
+   * showing anything.
+   *
+   * Without this the retry affordance is a dead end: tapping it calls
+   * requestForegroundPermissionsAsync(), no dialog appears, nothing changes,
+   * and the user is given no reason why. Screens read this to explain that the
+   * decision now lives in system settings rather than offering a retry that
+   * cannot work.
+   */
+  const [canAskAgain, setCanAskAgain] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,6 +75,10 @@ export function useUserLocation() {
         setStatus('granted');
         const position = await getCurrentCoords();
         if (!cancelled && position) setCoords(position);
+      } else if (existingStatus === 'denied') {
+        // Reflect a standing denial on load, not just after a failed request,
+        // so the retry pill never appears offering something that cannot work.
+        setStatus('denied');
       }
       // Only a real OS-level decision (granted/denied) or an explicit "Not
       // Now" suppresses the sheet — a lapsed "allow once" grant (status back
@@ -75,9 +91,23 @@ export function useUserLocation() {
   }, []);
 
   const requestLocation = useCallback(async () => {
-    const result = await Location.requestForegroundPermissionsAsync();
     writeCache<StoredChoice>(CHOICE_CACHE_KEY, 'requested');
     setHasPrompted(true);
+
+    let result: Location.LocationPermissionResponse;
+    try {
+      result = await Location.requestForegroundPermissionsAsync();
+    } catch {
+      // Older browsers without navigator.permissions throw rather than resolve.
+      setStatus('denied');
+      setCanAskAgain(false);
+      return;
+    }
+
+    // canAskAgain false means the dialog will never appear again, so callers
+    // must stop offering a retry and point at system settings instead.
+    setCanAskAgain(result.canAskAgain ?? true);
+
     if (result.status === 'granted') {
       setStatus('granted');
       const position = await getCurrentCoords();
@@ -93,5 +123,5 @@ export function useUserLocation() {
     setStatus('denied');
   }, []);
 
-  return { status, coords, hasPrompted, requestLocation, declineLocation };
+  return { status, coords, hasPrompted, canAskAgain, requestLocation, declineLocation };
 }
