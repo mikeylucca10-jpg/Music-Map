@@ -173,3 +173,28 @@ export const PosterGradient = {
  * reaches 52pt, which clears it.
  */
 export const MinTouchTarget = 44;
+
+/**
+ * Roughly how wide a poster renders, in points: a full-bleed card on a phone,
+ * less the screen's horizontal padding. Not exact, and does not need to be —
+ * it only has to land in the right band of the source's size ladder.
+ */
+export const PosterDisplayWidth = 360;
+
+/**
+ * How many source pixels to request per display point.
+ *
+ * Phones are commonly 3x DPR, so 2 is already a compromise between sharpness
+ * and bytes rather than a generous allowance. Tuning this is the single lever
+ * over poster quality and download size — deliberately here beside the tokens
+ * rather than inside pickImageForWidth, so it can be changed in one place after
+ * seeing the result on a real screen.
+ *
+ * Measured against the live feed, per poster:
+ *   2426px (largest available)  537 KB   <- what shipped before this existed
+ *   1024px (this setting, 2x)   157 KB
+ *    640px (1.5x)                73 KB
+ * Dropping to 1.5 would roughly halve the bytes again, at half the device's
+ * resolution on the art that is the visual centre of the card.
+ */
+export const PosterImageScale = 2;

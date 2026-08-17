@@ -67,7 +67,21 @@ export function ConcertListCard({
 
   const card = concert.imageUrl ? (
     <View style={[styles.card, width ? { width } : styles.cardFullWidth]}>
-      <Image source={{ uri: concert.imageUrl }} style={styles.image} contentFit="cover" transition={150} />
+      {/* memory-disk rather than the disk default: paging weeks revisits the
+          same posters constantly, and a memory hit skips re-decoding a ~1024px
+          JPEG. recyclingKey tells expo-image the view now shows a different
+          concert, so a recycled row cannot briefly paint the previous poster.
+          The box is already reserved by aspectRatio + the background fill, so
+          nothing reflows when the image lands. */}
+      <Image
+        source={{ uri: concert.imageUrl }}
+        style={styles.image}
+        contentFit="cover"
+        transition={150}
+        cachePolicy="memory-disk"
+        recyclingKey={concert.id}
+        accessible={false}
+      />
       <LinearGradient
         colors={[...PosterGradient.colors]}
         locations={[...PosterGradient.locations]}

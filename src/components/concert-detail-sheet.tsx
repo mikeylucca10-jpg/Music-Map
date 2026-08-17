@@ -53,12 +53,17 @@ export function ConcertDetailSheet({
           style={[styles.sheet, { paddingBottom: insets.bottom + Spacing.four }]}>
           <View style={styles.grabber} />
           <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            {/* Same URL the card already fetched, so this is normally a cache
+                hit and the hero appears without a second download. */}
             {concert.imageUrl && (
               <Image
                 source={{ uri: concert.imageUrl }}
                 style={styles.heroImage}
                 contentFit="cover"
                 transition={150}
+                cachePolicy="memory-disk"
+                recyclingKey={concert.id}
+                accessible={false}
               />
             )}
 

@@ -1,6 +1,10 @@
+import { PosterDisplayWidth, PosterImageScale } from '@/constants/theme';
 import { City, Concert } from '@/types/concert';
 
 const DISCOVERY_EVENTS_URL = 'https://app.ticketmaster.com/discovery/v2/events.json';
+
+/** Source pixels to ask for. Both inputs live in constants/theme.ts. */
+const POSTER_TARGET_WIDTH = PosterDisplayWidth * PosterImageScale;
 
 type TicketmasterVenue = {
   name?: string;
@@ -14,7 +18,7 @@ type TicketmasterAttraction = {
   name?: string;
 };
 
-type TicketmasterImage = { url: string; width?: number; height?: number };
+export type TicketmasterImage = { url: string; width?: number; height?: number };
 
 type TicketmasterClassification = {
   segment?: { name?: string };
@@ -38,17 +42,44 @@ type TicketmasterResponse = {
   _embedded?: { events?: TicketmasterEvent[] };
 };
 
-// Ticketmaster's images array isn't sorted by size — it mixes small
-// thumbnails (e.g. a 305x225 "4_3" crop) in with much larger ones (a
-// 2426x1365 "_SOURCE" original can be later in the same array), so
-// images[0] is often the lowest-quality option, not a preview/default. Pick
-// by actual pixel area instead. contentFit="cover" is used everywhere this
-// renders, so aspect ratio doesn't need to match the display container.
-function pickBestImage(images: TicketmasterImage[] | undefined): string | undefined {
+/**
+ * Smallest image that still covers the target width, falling back to the
+ * largest available when nothing reaches it.
+ *
+ * Ticketmaster's images array is not sorted by size — a 305x225 thumbnail can
+ * sit ahead of a 2426x1365 original in the same response — so images[0] is
+ * often the worst option rather than a sensible default. The previous rule
+ * corrected for that by always taking the *largest*, which overshot badly: a
+ * 2426px source (537 KB measured) rendering into a card about 360pt wide.
+ *
+ * A typical ladder here is 100 / 205 / 305 / 424 / 640 / 1024 / 1136 / 2048 /
+ * 2426, so at a 720px target this lands on 1024 — about 157 KB, roughly 70%
+ * less, with more pixels than a 3x phone can show at this display size.
+ *
+ * The anti-thumbnail property is preserved: sub-target candidates are never
+ * chosen while any candidate clears the target.
+ *
+ * contentFit="cover" is used everywhere this renders, so aspect ratio does not
+ * need to match the display container — only width matters here.
+ */
+// Exported solely so the unit tests can reach it — the selection rule has
+// fiddly edge cases (unsorted input, nothing large enough, missing dimensions)
+// and testing it through fetchTicketmasterConcerts would need a mocked network.
+export function pickImageForWidth(
+  images: TicketmasterImage[] | undefined,
+  targetWidth: number,
+): string | undefined {
   if (!images?.length) return undefined;
-  return images.reduce((best, image) =>
+
+  const largest = images.reduce((best, image) =>
     (image.width ?? 0) * (image.height ?? 0) > (best.width ?? 0) * (best.height ?? 0) ? image : best,
-  ).url;
+  );
+
+  const smallestSufficient = images
+    .filter((image) => (image.width ?? 0) >= targetWidth)
+    .sort((a, b) => (a.width ?? 0) - (b.width ?? 0))[0];
+
+  return (smallestSufficient ?? largest).url;
 }
 
 export async function fetchTicketmasterConcerts(city: City): Promise<Concert[]> {
@@ -101,7 +132,7 @@ export async function fetchTicketmasterConcerts(city: City): Promise<Concert[]> 
         .join(', '),
       latitude,
       longitude,
-      imageUrl: pickBestImage(event.images),
+      imageUrl: pickImageForWidth(event.images, POSTER_TARGET_WIDTH),
       isFree: priceRange?.min === 0,
       is21Plus: event.ageRestrictions?.legalAgeEnforced === true,
       priceMin: priceRange?.min,
