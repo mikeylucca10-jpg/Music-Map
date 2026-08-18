@@ -15,6 +15,7 @@ type TicketmasterVenue = {
 
 type TicketmasterAttraction = {
   name?: string;
+  classifications?: TicketmasterClassification[];
 };
 
 export type TicketmasterImage = { url: string; width?: number; height?: number };
@@ -146,6 +147,49 @@ export function pickImageForWidth(
 }
 
 /**
+ * The local Ticketmaster key, but only in development.
+ *
+ * `__DEV__` compiles to `false` in a production build, so every call site
+ * folds to `undefined` there and the direct-call path becomes unreachable dead
+ * code. The residual risk is narrower and noted in .env.example: if
+ * EXPO_PUBLIC_TICKETMASTER_API_KEY is still present when a release build is
+ * made, Expo inlines the value even though nothing reads it.
+ */
+function devFallbackKey(): string | undefined {
+  if (!__DEV__) return undefined;
+  return process.env.EXPO_PUBLIC_TICKETMASTER_API_KEY || undefined;
+}
+
+function warnDevFallback(because: string) {
+  console.warn(
+    `[concerts] Falling back to a direct Ticketmaster call with the local dev key because ${because}. ` +
+      'Deploy the proxy with: supabase functions deploy concerts',
+  );
+}
+
+const DISCOVERY_EVENTS_URL = 'https://app.ticketmaster.com/discovery/v2/events.json';
+
+/**
+ * Direct Ticketmaster call, reachable only from the `__DEV__` fallback below.
+ * Never runs in a production build, where the Edge Function is the only path.
+ */
+async function fetchDirectFromTicketmaster(city: City, apiKey: string): Promise<Concert[]> {
+  const params = new URLSearchParams({
+    apikey: apiKey,
+    city: city.ticketmasterCity,
+    stateCode: city.ticketmasterStateCode,
+    countryCode: city.ticketmasterCountryCode,
+    classificationName: 'Dance/Electronic',
+    startDateTime: `${new Date().toISOString().split('.')[0]}Z`,
+    sort: 'date,asc',
+    size: '100',
+  });
+  const response = await fetch(`${DISCOVERY_EVENTS_URL}?${params.toString()}`);
+  if (!response.ok) throw new Error(`Ticketmaster request failed (${response.status})`);
+  return normalizeEvents(await response.json());
+}
+
+/**
  * Fetches through the `concerts` Edge Function rather than calling Ticketmaster
  * directly, so the API key never enters the client bundle.
  *
@@ -163,13 +207,44 @@ export async function fetchTicketmasterConcerts(city: City): Promise<Concert[]> 
   }
 
   const endpoint = `${supabaseUrl}/functions/v1/concerts?cityId=${encodeURIComponent(city.id)}`;
-  const response = await fetch(endpoint, {
-    // The anon key is designed to be public and is required by the Functions
-    // gateway; unlike the Ticketmaster key it grants nothing on its own.
-    headers: { Authorization: `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? ''}` },
-  });
+
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      // The anon key is designed to be public and is required by the Functions
+      // gateway; unlike the Ticketmaster key it grants nothing on its own.
+      headers: { Authorization: `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? ''}` },
+    });
+  } catch (error) {
+    // A *rejected* fetch, not a bad status. This is the shape an undeployed
+    // function actually takes in a browser: Supabase's gateway 404s without the
+    // CORS headers the function itself would send, so the response is blocked
+    // before any status is readable and fetch rejects with a network error.
+    // Checking response.ok alone never sees it.
+    const key = devFallbackKey();
+    if (key) {
+      warnDevFallback('the request was blocked (function likely not deployed)');
+      return fetchDirectFromTicketmaster(city, key);
+    }
+    throw error;
+  }
 
   if (!response.ok) {
+    // Development escape hatch, and only that. If the Edge Function is not
+    // deployed yet, fall back to calling Ticketmaster directly with a local key
+    // so the app still runs locally.
+    //
+    // `__DEV__` compiles to `false` in a production build, so this branch is
+    // dead code there and cannot re-expose the key by being reached. The
+    // residual risk is narrower and already noted in .env.example: if
+    // EXPO_PUBLIC_TICKETMASTER_API_KEY is still present when a release build is
+    // made, Expo inlines the value even though nothing reads it.
+    const key = devFallbackKey();
+    if (key) {
+      warnDevFallback(`the function returned ${response.status}`);
+      return fetchDirectFromTicketmaster(city, key);
+    }
+
     // Surface the function's own message when it sent one — it distinguishes a
     // missing server-side key (a config problem, no retry) from an upstream
     // failure (retryable), which classifyFetchError then reads.
@@ -180,7 +255,14 @@ export async function fetchTicketmasterConcerts(city: City): Promise<Concert[]> 
     throw new Error(message ?? `Ticketmaster request failed (${response.status})`);
   }
 
-  const data: TicketmasterResponse = await response.json();
+  return normalizeEvents(await response.json());
+}
+
+/**
+ * Shared by both fetch paths so the Edge Function route and the dev fallback
+ * cannot drift apart in how they interpret a response.
+ */
+function normalizeEvents(data: TicketmasterResponse): Concert[] {
   const events = data._embedded?.events ?? [];
 
   const concerts: Concert[] = [];
@@ -197,10 +279,33 @@ export async function fetchTicketmasterConcerts(city: City): Promise<Concert[]> 
       subGenre: classification.subGenre?.name,
     }));
 
+    // The *artist's* classification is preferred over the event's, and that is
+    // what actually makes this work. Event tags are edited per listing and
+    // drift: this same Harry Styles residency was Pop/Pop one day and
+    // Pop/Electro Pop the next, and on the second day every Pop listing in the
+    // feed carried Electro Pop — which the subGenre rescue then read as
+    // electronic, letting all 31 dates back in. The artist tag did not move:
+    //
+    //   Harry Styles   event Pop/Electro Pop   artist Pop/Pop Rock
+    //   Galantis       event Pop/Electro Pop   artist Dance/Electronic
+    //   Bolden.        event Pop/Electro Pop   artist Dance/Electronic/Jazz-House
+    //
+    // An artist has one genre; an event tag is a per-listing guess. Fall back
+    // to the event's own tags only when no attraction is attached, which is
+    // common for multi-act club nights.
+    const artistClassifications = event._embedded?.attractions?.[0]?.classifications?.map(
+      (classification) => ({
+        segment: classification.segment?.name,
+        genre: classification.genre?.name,
+        subGenre: classification.subGenre?.name,
+      }),
+    );
+
     // Dropped here rather than downstream so nothing in the app ever sees a
     // non-electronic show — the map, saved concerts, and every screen inherit
     // this for free instead of each re-deciding.
-    if (!isLikelyElectronic(classifications)) continue;
+    if (!isLikelyElectronic(artistClassifications?.length ? artistClassifications : classifications))
+      continue;
 
     const priceRange = event.priceRanges?.[0];
 

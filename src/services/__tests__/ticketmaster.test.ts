@@ -153,3 +153,32 @@ describe('isLikelyElectronic across multiple classifications', () => {
     expect(isLikelyElectronic([{ genre: 'R&B', subGenre: 'R&B' }])).toBe(false);
   });
 });
+
+// Why the normalizer judges on the *artist's* classification before the
+// event's. These are the exact tags the live feed returned on 2026-08-17, the
+// day the event tags drifted and the previous rule stopped working.
+describe('isLikelyElectronic on artist vs event classifications', () => {
+  it('event tags alone cannot separate Harry Styles from Galantis', () => {
+    // Both arrived as Pop / Electro Pop on the same day. Every Pop listing in
+    // the feed carried Electro Pop, so the subGenre rescue kept all of them —
+    // which is how a 31-date arena residency got back to the top of an EDM app.
+    const eventTag = [{ genre: 'Pop', subGenre: 'Electro Pop' }];
+    expect(isLikelyElectronic(eventTag)).toBe(true); // Harry Styles: wrong
+    expect(isLikelyElectronic(eventTag)).toBe(true); // Galantis: right
+  });
+
+  it('artist tags do separate them', () => {
+    // An artist has one genre; an event tag is a per-listing guess that gets
+    // edited. These held steady while the event tags moved.
+    expect(isLikelyElectronic([{ genre: 'Pop', subGenre: 'Pop Rock' }])).toBe(false); // Harry Styles
+    expect(isLikelyElectronic([{ genre: 'Dance/Electronic', subGenre: 'Dance/Electronic' }])).toBe(
+      true,
+    ); // Galantis
+    expect(isLikelyElectronic([{ genre: 'Dance/Electronic', subGenre: 'Jazz-House' }])).toBe(true); // Bolden.
+  });
+
+  it('still drops the acts that were never ambiguous', () => {
+    expect(isLikelyElectronic([{ genre: 'Hip-Hop/Rap', subGenre: 'Hip-Hop/Rap' }])).toBe(false);
+    expect(isLikelyElectronic([{ genre: 'R&B', subGenre: 'R&B' }])).toBe(false);
+  });
+});
