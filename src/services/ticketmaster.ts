@@ -259,6 +259,38 @@ export async function fetchTicketmasterConcerts(city: City): Promise<Concert[]> 
 }
 
 /**
+ * Which classifications decide whether an event is electronic.
+ *
+ * The artist's win when present. Event tags are edited per listing and drift:
+ * one Harry Styles residency arrived Pop/Pop one day and Pop/Electro Pop the
+ * next, and on the second day every Pop listing in the feed carried Electro
+ * Pop — which the subGenre rescue read as electronic, letting all 31 dates
+ * back in. The artist tag did not move (Pop/Pop Rock), while Galantis, Bolden.
+ * and Lenny Pearce all read Dance/Electronic at the artist level despite
+ * carrying the same Pop/Electro Pop event tag.
+ *
+ * Falls back to the event's own tags only when no attraction is attached,
+ * which is common for multi-act club nights.
+ *
+ * Exported so the live feed tripwire (feed-tripwire.live.test.ts) judges
+ * exactly what the app judges, rather than re-implementing the rule and
+ * drifting from it.
+ */
+export function classificationsToJudge(event: {
+  classifications?: TicketmasterClassification[];
+  _embedded?: { attractions?: TicketmasterAttraction[] };
+}): { genre?: string; subGenre?: string }[] | undefined {
+  const flatten = (list?: TicketmasterClassification[]) =>
+    list?.map((classification) => ({
+      genre: classification.genre?.name,
+      subGenre: classification.subGenre?.name,
+    }));
+
+  const artist = flatten(event._embedded?.attractions?.[0]?.classifications);
+  return artist?.length ? artist : flatten(event.classifications);
+}
+
+/**
  * Shared by both fetch paths so the Edge Function route and the dev fallback
  * cannot drift apart in how they interpret a response.
  */
@@ -293,19 +325,10 @@ function normalizeEvents(data: TicketmasterResponse): Concert[] {
     // An artist has one genre; an event tag is a per-listing guess. Fall back
     // to the event's own tags only when no attraction is attached, which is
     // common for multi-act club nights.
-    const artistClassifications = event._embedded?.attractions?.[0]?.classifications?.map(
-      (classification) => ({
-        segment: classification.segment?.name,
-        genre: classification.genre?.name,
-        subGenre: classification.subGenre?.name,
-      }),
-    );
-
     // Dropped here rather than downstream so nothing in the app ever sees a
     // non-electronic show — the map, saved concerts, and every screen inherit
     // this for free instead of each re-deciding.
-    if (!isLikelyElectronic(artistClassifications?.length ? artistClassifications : classifications))
-      continue;
+    if (!isLikelyElectronic(classificationsToJudge(event))) continue;
 
     const priceRange = event.priceRanges?.[0];
 

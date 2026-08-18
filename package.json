@@ -52,7 +52,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "test": "jest"
+    "test": "jest",
+    "check:feed": "jest --testMatch \"**/*.live.test.ts\" --testPathIgnorePatterns="
   },
   "jest": {
     "preset": "jest-expo",
@@ -63,7 +64,11 @@
       "\\.(css)$": "<rootDir>/jest.style-stub.js",
       "^@/assets/(.*)$": "<rootDir>/assets/$1",
       "^@/(.*)$": "<rootDir>/src/$1"
-    }
+    },
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "\\.live\\.test\\.ts$"
+    ]
   },
   "private": true
 }
