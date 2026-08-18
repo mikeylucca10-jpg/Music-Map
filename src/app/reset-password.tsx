@@ -4,7 +4,7 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, TextInput, View } f
 import { ScreenScaffold } from '@/components/screen-scaffold';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Radius, Spacing } from '@/constants/theme';
+import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 
@@ -194,12 +194,12 @@ const styles = StyleSheet.create({
     height: 48,
     marginTop: Spacing.two,
     borderRadius: Radius.pill,
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.dark.accent,
     justifyContent: 'center',
     alignItems: 'center',
   },
   submitButtonLabel: {
-    color: '#0A0A0A',
+    color: Colors.dark.accentInk,
     fontSize: 16,
     fontWeight: '700',
   },

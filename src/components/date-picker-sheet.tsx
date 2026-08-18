@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Radius, Spacing } from '@/constants/theme';
+import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { dateKeyFor, getNycDateKey } from '@/lib/format-date';
 
@@ -266,7 +266,7 @@ export function DatePickerSheet({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: Colors.dark.backdrop,
   },
   sheet: {
     borderTopLeftRadius: Radius.large,
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.24)',
+    backgroundColor: Colors.dark.grabber,
     marginTop: Spacing.two,
   },
   header: {

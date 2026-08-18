@@ -73,8 +73,8 @@ const styles = StyleSheet.create({
   },
   blur: {
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
-    backgroundColor: 'rgba(10, 10, 10, 0.6)',
+    borderTopColor: Colors.dark.border,
+    backgroundColor: Colors.dark.overlayScrim,
   },
   innerContainer: {
     flexDirection: 'row',

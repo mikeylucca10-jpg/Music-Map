@@ -8,7 +8,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 
-import { Radius, Spacing } from '@/constants/theme';
+import { Colors, Radius, Spacing } from '@/constants/theme';
 
 type SkeletonCardProps = {
   width?: number;
@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
   card: {
     aspectRatio: 4 / 5,
     borderRadius: Radius.card,
-    backgroundColor: '#1c1c1e',
+    backgroundColor: Colors.dark.backgroundElement,
     padding: Spacing.three,
     justifyContent: 'flex-end',
     gap: Spacing.two,
@@ -66,12 +66,12 @@ const styles = StyleSheet.create({
     height: 16,
     width: '70%',
     borderRadius: Radius.card / 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    backgroundColor: Colors.dark.skeletonStrong,
   },
   textLineNarrow: {
     height: 12,
     width: '45%',
     borderRadius: Radius.card / 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: Colors.dark.skeletonSoft,
   },
 });

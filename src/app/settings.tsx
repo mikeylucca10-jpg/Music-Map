@@ -8,7 +8,7 @@ import { ScreenScaffold } from '@/components/screen-scaffold';
 import { SkeletonCard } from '@/components/skeleton-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Radius, Spacing } from '@/constants/theme';
+import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useProfile } from '@/hooks/use-profile';
 import { useSavedConcerts } from '@/hooks/use-saved-concerts';
@@ -479,11 +479,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.two,
     borderRadius: Radius.card,
-    backgroundColor: '#e5484d',
+    backgroundColor: Colors.dark.surfaceOverlay,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
   },
   signOutButtonLabel: {
-    color: '#ffffff',
-    fontSize: 14,
+    color: Colors.dark.text,
+    fontSize: Fonts.size.sm,
     fontWeight: '700',
   },
   form: {
@@ -517,13 +519,13 @@ const styles = StyleSheet.create({
     height: 48,
     marginTop: Spacing.two,
     borderRadius: Radius.pill,
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.dark.accent,
     justifyContent: 'center',
     alignItems: 'center',
   },
   submitButtonLabel: {
-    color: '#0A0A0A',
-    fontSize: 16,
+    color: Colors.dark.accentInk,
+    fontSize: Fonts.size.base,
     fontWeight: '700',
   },
 });

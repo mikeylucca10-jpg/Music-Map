@@ -24,6 +24,18 @@ const palette = {
    * headers to sit above the list without becoming a card themselves.
    */
   surfaceRaised: '#1E1A1A',
+  /**
+   * A fourth plane, for content sitting on top of a raised surface — a chip
+   * inside a card, an input inside a sheet.
+   *
+   * Four levels rather than two because premium depth on a dark ground comes
+   * from card-on-card layering, not from shadows: a drop shadow on near-black
+   * is invisible, so elevation has to be carried by the surface value itself.
+   * The steps are deliberately close (10 / 16 / 30 / 42 in lightness) — far
+   * enough apart to read as separate planes, near enough that the stack still
+   * reads as one dark room rather than a set of grey boxes.
+   */
+  surfaceOverlay: '#2A2424',
   textSecondary: '#9B9BA3',
   /**
    * Text drawn on top of poster art rather than on a theme surface. Pure white
@@ -57,6 +69,14 @@ const palette = {
    */
   accentText: '#EF4444',
   border: 'rgba(255, 255, 255, 0.08)',
+  /**
+   * The two bars inside a loading skeleton. Brighter than `border` because they
+   * stand in for text, not for a hairline — and two values rather than one so a
+   * skeleton reproduces the hierarchy of the card it is replacing (a title line
+   * reads stronger than a meta line) instead of a stack of identical grey bars.
+   */
+  skeletonStrong: 'rgba(255, 255, 255, 0.14)',
+  skeletonSoft: 'rgba(255, 255, 255, 0.10)',
 } as const;
 
 export const Colors = {
