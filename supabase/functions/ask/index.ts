@@ -1,26 +1,65 @@
 // Supabase Edge Function: the Ask feature's LLM proxy.
 //
-// Exists so the Anthropic API key stays server-side. An EXPO_PUBLIC_ key would
-// ship inside the client bundle, and unlike the Ticketmaster key an LLM key is
+// Routed through the Perplexity Router API rather than calling a model
+// provider directly, so the model can be swapped by changing one env var
+// instead of swapping SDKs. Router docs: https://docs.perplexity.ai/docs/gateway/quickstart
+//
+// Exists so the API key stays server-side. An EXPO_PUBLIC_ key would ship
+// inside the client bundle, and unlike the Ticketmaster key an LLM key is
 // directly billable — anyone who extracted it could spend against the account
 // with no cap.
 //
 // Deploy:
 //   supabase functions deploy ask
-//   supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+//   supabase secrets set PERPLEXITY_API_KEY=...
+//   supabase secrets set PERPLEXITY_MODEL=<slug from GET /router/v1/models>
 import Anthropic from 'npm:@anthropic-ai/sdk';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-// Haiku 4.5 deliberately: this task is "pick matching shows from a list I gave
-// you and say why" — constrained selection, not hard reasoning — and cost is
-// the binding constraint here. Swap this one line for 'claude-sonnet-5' or
-// 'claude-opus-5' if answers aren't good enough; nothing else needs to change.
-const MODEL = 'claude-haiku-4-5';
+/**
+ * Anthropic-compatible Router endpoint.
+ *
+ * Deliberately ends at /router, not /router/v1: the Anthropic SDK appends
+ * /v1/messages itself, so including the version here would produce
+ * /router/v1/v1/messages. The OpenAI-compatible base URL is the other one
+ * (https://api.perplexity.ai/router/v1) — they are not interchangeable.
+ *
+ * The Messages schema is used rather than Chat Completions because this
+ * function already spoke it. Both schemas accept every Router model, so the
+ * choice costs nothing in model availability and avoids rewriting the request
+ * and response handling for no gain.
+ */
+const ROUTER_BASE_URL = 'https://api.perplexity.ai/router';
 
-// Published per-million-token rates for the model above, used only to report
-// the cost of each call back to the client. Update if MODEL changes.
-const INPUT_COST_PER_MTOK = 1.0;
-const OUTPUT_COST_PER_MTOK = 5.0;
+/**
+ * Router model ids are `creator/model-name` slugs, and GET /router/v1/models
+ * is both the catalogue and the allowlist — an unlisted slug fails with a 400.
+ *
+ * Read from the environment so swapping models is a secret change and not a
+ * deploy of new code, which is the reason for routing through the gateway at
+ * all. The default is a slug taken verbatim from the Router quickstart; it has
+ * NOT been verified against the live catalogue from here, because no
+ * PERPLEXITY_API_KEY with Router access was available: the key on hand returns
+ * 403 restricted_api_key on every Router endpoint (the same key returns 200 on
+ * POST /search, so the key is valid and the Router tier specifically is not
+ * enabled). Confirm this slug against GET /router/v1/models once Router access
+ * is on, or set PERPLEXITY_MODEL to something the catalogue actually lists.
+ */
+const MODEL = Deno.env.get('PERPLEXITY_MODEL') ?? 'perplexity/kimi-k3';
+
+/**
+ * Per-million-token rates used only to report each call's cost back to the
+ * client, which the UI shows so spend is visible rather than discovered on an
+ * invoice.
+ *
+ * Configurable because they are a property of the selected model, and the
+ * model is now an env var — a hardcoded pair would silently misreport the
+ * moment PERPLEXITY_MODEL changes. Both default to 0, which reports $0.0000
+ * rather than a confident wrong number. Set them from
+ * https://docs.perplexity.ai/docs/getting-started/pricing for the chosen model.
+ */
+const INPUT_COST_PER_MTOK = Number(Deno.env.get('PERPLEXITY_INPUT_COST_PER_MTOK') ?? '0');
+const OUTPUT_COST_PER_MTOK = Number(Deno.env.get('PERPLEXITY_OUTPUT_COST_PER_MTOK') ?? '0');
 
 // A reply is a few sentences. This is the hard ceiling on the billable half of
 // each request — the single most effective cost control here.
@@ -32,6 +71,39 @@ const DAILY_REQUEST_LIMIT = 40;
 // Sending the whole listing would grow with the fetched window; this bounds
 // the input side of the bill and stays well inside the context window.
 const MAX_CONCERTS = 60;
+
+/**
+ * The Router does not support structured outputs: `output_config` is not an
+ * accepted parameter, and unrecognised top-level fields are rejected with a
+ * 400. This function previously relied on output_config.format to force
+ * {reply, concertIds}, which is the layer that stops the model inventing shows
+ * that do not exist.
+ *
+ * Tools are supported, so the same guarantee is kept by declaring one tool and
+ * requiring it: the model must call it, and its input_schema is the shape the
+ * old json_schema described. Dropping to free-form text and parsing prose
+ * would lose the guarantee entirely, which the project notes explicitly forbid.
+ */
+const RECOMMEND_TOOL = {
+  name: 'recommend_shows',
+  description:
+    'Return the recommended shows and the reply to show the user. Must be called exactly once.',
+  input_schema: {
+    type: 'object' as const,
+    properties: {
+      reply: {
+        type: 'string',
+        description: 'A few sentences, in a normal speaking voice, saying why each show fits.',
+      },
+      concertIds: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Ids of recommended shows, copied exactly from the supplied list, best fit first.',
+      },
+    },
+    required: ['reply', 'concertIds'],
+  },
+};
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -58,7 +130,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
   if (req.method !== 'POST') return json({ error: 'Use POST.' }, 405);
 
-  const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+  const apiKey = Deno.env.get('PERPLEXITY_API_KEY');
   if (!apiKey) {
     return json({ error: 'The Ask feature isn’t configured yet.' }, 503);
   }
@@ -119,7 +191,10 @@ Deno.serve(async (req) => {
     )
     .join('\n');
 
-  const anthropic = new Anthropic({ apiKey });
+  // baseURL points the Anthropic SDK at the Router. The SDK's default
+  // x-api-key header is accepted by the Router alongside Authorization: Bearer,
+  // and no anthropic-version header is required, so no custom headers here.
+  const anthropic = new Anthropic({ apiKey, baseURL: ROUTER_BASE_URL });
 
   try {
     const response = await anthropic.messages.create({
@@ -135,51 +210,44 @@ Deno.serve(async (req) => {
         '- Recommend at most 5 shows, best fit first.',
         '- Keep the reply to a few sentences, in a normal speaking voice. Say why each show fits.',
         '- Do not list the ids in your reply text; they are returned separately.',
+        '- Answer only by calling the recommend_shows tool.',
         '',
         'Shows (id | name | venue | starts):',
         catalogue,
       ].join('\n'),
       messages: [{ role: 'user', content: question }],
-      output_config: {
-        format: {
-          type: 'json_schema',
-          schema: {
-            type: 'object',
-            properties: {
-              reply: { type: 'string' },
-              concertIds: { type: 'array', items: { type: 'string' } },
-            },
-            required: ['reply', 'concertIds'],
-            additionalProperties: false,
-          },
-        },
-      },
+      // Replaces output_config, which the Router rejects. tool_choice forces
+      // the call, so the response shape is guaranteed rather than hoped for.
+      tools: [RECOMMEND_TOOL],
+      tool_choice: { type: 'tool', name: RECOMMEND_TOOL.name },
     });
 
     if (response.stop_reason === 'refusal') {
       return json({ error: 'That question can’t be answered here. Try rephrasing.' }, 400);
     }
 
-    const textBlock = response.content.find((b) => b.type === 'text');
-    if (!textBlock || textBlock.type !== 'text') {
+    // The grounding layer: read the forced tool call, not the prose. A model
+    // answering in free text cannot smuggle an invented show through here,
+    // because nothing outside this block is read.
+    const toolUse = response.content.find(
+      (block) => block.type === 'tool_use' && block.name === RECOMMEND_TOOL.name,
+    );
+    if (!toolUse || toolUse.type !== 'tool_use') {
       return json({ error: 'No answer came back. Try again.' }, 502);
     }
 
-    let parsed: { reply?: string; concertIds?: string[] };
-    try {
-      parsed = JSON.parse(textBlock.text);
-    } catch {
-      return json({ error: 'The answer came back malformed. Try again.' }, 502);
-    }
+    const parsed = toolUse.input as { reply?: string; concertIds?: string[] };
 
+    // Usage field names follow the Messages schema on the Router exactly as
+    // they do on Anthropic's own API, so this is unchanged.
     const { input_tokens: inputTokens, output_tokens: outputTokens } = response.usage;
     const costUsd =
       (inputTokens / 1_000_000) * INPUT_COST_PER_MTOK +
       (outputTokens / 1_000_000) * OUTPUT_COST_PER_MTOK;
 
     return json({
-      reply: parsed.reply ?? '',
-      concertIds: Array.isArray(parsed.concertIds) ? parsed.concertIds : [],
+      reply: typeof parsed?.reply === 'string' ? parsed.reply : '',
+      concertIds: Array.isArray(parsed?.concertIds) ? parsed.concertIds : [],
       usage: {
         inputTokens,
         outputTokens,
@@ -189,6 +257,7 @@ Deno.serve(async (req) => {
       },
     });
   } catch (error) {
+
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('Anthropic request failed:', message);
     return json({ error: 'Couldn’t reach the assistant. Try again in a moment.' }, 502);
