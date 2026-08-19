@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { DatePickerSheet } from '@/components/date-picker-sheet';
@@ -69,9 +70,29 @@ export function ConcertsFilterBar({
   onResetFilters,
 }: ConcertsFilterBarProps) {
   const theme = useTheme();
-  const [cityMenuOpen, setCityMenuOpen] = useState(false);
+  // One value, not two booleans. Two independent flags let both dropdowns be
+  // open at once -- tapping City while Filters was down left them overlapping,
+  // because nothing in the old shape could express "at most one". This makes
+  // that unrepresentable rather than a rule someone has to remember at each
+  // call site.
+  const [openMenu, setOpenMenu] = useState<'city' | 'filters' | null>(null);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const [filtersMenuOpen, setFiltersMenuOpen] = useState(false);
+  const cityMenuOpen = openMenu === 'city';
+  const filtersMenuOpen = openMenu === 'filters';
+  const toggleMenu = (menu: 'city' | 'filters') =>
+    setOpenMenu((current) => (current === menu ? null : menu));
+
+  // Close on the way out, so leaving for a concert and coming back does not
+  // land on a menu left hanging open. The screen stays mounted underneath a
+  // pushed route, so without this its state survives the trip.
+  useFocusEffect(
+    useCallback(
+      () => () => {
+        setOpenMenu(null);
+      },
+      [],
+    ),
+  );
   // "Any night" rather than today's date when nothing is picked. The pill used
   // to default to today, which openly contradicted the strip beside it — the
   // pill would read "Sun, Aug 16" while the strip showed Aug 24–30. Today's
@@ -83,21 +104,39 @@ export function ConcertsFilterBar({
   function selectCity(item: City) {
     onCityChange(item);
     onBoroughChange?.(null);
-    setCityMenuOpen(false);
+    setOpenMenu(null);
   }
 
   function selectBorough(item: City, boroughId: string) {
     onCityChange(item);
     onBoroughChange?.(boroughId);
-    setCityMenuOpen(false);
+    setOpenMenu(null);
   }
 
   return (
     <View style={styles.container}>
+      {/* Light dismiss. Apple's HIG treats tapping outside as the way to close
+          a menu — "no changes applied", no explicit Cancel needed — and without
+          it the only way out was to hit the same pill again, which is not where
+          anyone reaches. Deliberately swallows the tap rather than passing it
+          through to whatever sat underneath: the first tap means "close this",
+          and acting on the thing behind it would be an unintended selection.
+
+          Sized in viewport units rather than inset:0 because it has to cover
+          the whole screen while living inside the bar's own container. */}
+      {openMenu && (
+        <Pressable
+          onPress={() => setOpenMenu(null)}
+          accessibilityRole="button"
+          accessibilityLabel="Close menu"
+          style={styles.backdrop}
+        />
+      )}
+
       <View style={styles.pillsRow}>
         <View style={styles.pillWrapper}>
           <Pressable
-            onPress={() => setCityMenuOpen((open) => !open)}
+            onPress={() => toggleMenu('city')}
             style={({ pressed }) => pressed && styles.pressed}>
             <ThemedView type="backgroundElement" style={styles.cityPill}>
               <ThemedText type="smallBold" style={styles.pillLabel} numberOfLines={1}>{cityPillLabel} ▾</ThemedText>
@@ -146,7 +185,12 @@ export function ConcertsFilterBar({
         {onDateChange && (
           <View style={styles.pillWrapper}>
             <Pressable
-              onPress={() => setDatePickerOpen(true)}
+              onPress={() => {
+                // The date sheet is a third menu in every sense except that it
+                // renders as a modal, so opening it dismisses the other two.
+                setOpenMenu(null);
+                setDatePickerOpen(true);
+              }}
               style={({ pressed }) => pressed && styles.pressed}>
               <ThemedView type="backgroundElement" style={styles.cityPill}>
                 <ThemedText type="smallBold" style={styles.pillLabel} numberOfLines={1}>{selectedDateLabel} ▾</ThemedText>
@@ -167,7 +211,7 @@ export function ConcertsFilterBar({
 
         <View style={styles.pillWrapper}>
           <Pressable
-            onPress={() => setFiltersMenuOpen((open) => !open)}
+            onPress={() => toggleMenu('filters')}
             style={({ pressed }) => pressed && styles.pressed}>
             {/* Names the active category rather than always reading "Filters".
                 City and Date pills already show their own state; this one did
@@ -196,7 +240,7 @@ export function ConcertsFilterBar({
                       key={item}
                       onPress={() => {
                         onCategoryChange(item);
-                        setFiltersMenuOpen(false);
+                        setOpenMenu(null);
                       }}
                       style={({ pressed }) => [styles.cityMenuItem, pressed && styles.pressed]}>
                       <ThemedText
@@ -328,7 +372,20 @@ const styles = StyleSheet.create({
     // documented discoverability problem. Four compact pills fit 393pt.
     // Wins the stacking tie against the weekNavRow sibling below it (both
     // default to z-index:0 otherwise, and DOM order would let weekNavRow
-    // paint over an open dropdown's bottom edge).
+    // paint over an open dropdown's bottom edge). Also has to out-rank the
+    // backdrop, so the pills and the open menu stay above it while everything
+    // else on the screen sits beneath.
+    zIndex: 2,
+  },
+  // Between the pills (2) and everything else (0): the menus stay tappable,
+  // the list, strip and reset row below do not. Extends far past the bar in
+  // every direction so a tap anywhere on the screen counts as "outside".
+  backdrop: {
+    position: 'absolute',
+    top: -400,
+    bottom: -1200,
+    left: -400,
+    right: -400,
     zIndex: 1,
   },
   pillWrapper: {
