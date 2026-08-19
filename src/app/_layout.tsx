@@ -44,6 +44,9 @@ export default function RootLayout() {
         {/* Slides up from the bottom: this is a detail *of* the list, and the
             gesture matches the one that opened it. */}
         <Stack.Screen name="concert/[id]" options={{ animation: 'slide_from_bottom' }} />
+        {/* Parked, not a tab, but reachable at /ask -- it has to sit outside
+            (tabs) for that, exactly like the legal pages. */}
+        <Stack.Screen name="ask" />
         <Stack.Screen name="privacy-policy" />
         <Stack.Screen name="terms" />
         <Stack.Screen name="reset-password" />
