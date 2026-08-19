@@ -15,6 +15,7 @@ import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ExternalLink } from '@/components/external-link';
+import { FollowChip } from '@/components/follow-chip';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Colors, Fonts, Radius, Spacing } from '@/constants/theme';
@@ -275,51 +276,6 @@ export default function ConcertScreen() {
   );
 }
 
-/**
- * A follow control, styled as a chip rather than a button.
- *
- * Filled when following, outlined when not: the state has to be readable at a
- * glance without reading the label, because the label is a name and names do
- * not carry state. The word changes too ("Following" vs "Follow") so the
- * meaning does not rest on colour alone.
- */
-function FollowChip({
-  label,
-  active,
-  pending,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  pending: boolean;
-  onPress: () => void;
-}) {
-  const theme = useTheme();
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={pending}
-      accessibilityRole="button"
-      accessibilityState={{ selected: active, disabled: pending }}
-      accessibilityLabel={active ? `Unfollow ${label}` : `Follow ${label}`}
-      style={({ pressed }) => [
-        styles.followChip,
-        {
-          backgroundColor: active ? theme.accent : theme.surfaceOverlay,
-          borderColor: active ? theme.accent : theme.border,
-        },
-        (pressed || pending) && styles.pressed,
-      ]}>
-      <ThemedText
-        type="smallBold"
-        numberOfLines={1}
-        style={{ color: active ? theme.accentInk : theme.text }}>
-        {active ? 'Following' : 'Follow'} {label}
-      </ThemedText>
-    </Pressable>
-  );
-}
-
 function TicketSourceRow({ source }: { source: TicketSource }) {
   return (
     <ExternalLink href={source.url as Href & string} asChild>
@@ -398,13 +354,6 @@ const styles = StyleSheet.create({
   heart: { fontSize: 26, lineHeight: 28, color: Colors.dark.text },
   metaRows: { gap: Spacing.one },
   followRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  followChip: {
-    flexShrink: 1,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderRadius: Radius.pill,
-    borderWidth: 1,
-  },
   addressLink: { textDecorationLine: 'underline' },
   directionsWrapper: { marginTop: Spacing.one },
   directionsButton: {
