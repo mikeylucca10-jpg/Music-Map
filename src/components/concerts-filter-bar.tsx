@@ -7,6 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
 import { Category } from '@/hooks/use-concerts-filters';
+import { useTheme } from '@/hooks/use-theme';
 import { formatDateKeyLabel } from '@/lib/format-date';
 import { City } from '@/types/concert';
 
@@ -28,6 +29,12 @@ type ConcertsFilterBarProps = {
   canGoNextWeek?: boolean;
   weekNavRelevant?: boolean;
   setWeekOffset?: (offset: number) => void;
+  /** Only rendered when the viewer follows something — see followCount. */
+  followingOnly?: boolean;
+  onFollowingOnlyChange?: (value: boolean) => void;
+  followCount?: number;
+  /** Shows matching the current filters, for the live-region announcement. */
+  resultCount?: number;
   /** The visible week's seven nights with per-night show counts, for the strip. */
   weekNights?: WeekNight[];
 };
@@ -51,7 +58,12 @@ export function ConcertsFilterBar({
   weekNavRelevant = true,
   setWeekOffset,
   weekNights,
+  followingOnly = false,
+  onFollowingOnlyChange,
+  followCount = 0,
+  resultCount,
 }: ConcertsFilterBarProps) {
+  const theme = useTheme();
   const [cityMenuOpen, setCityMenuOpen] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [filtersMenuOpen, setFiltersMenuOpen] = useState(false);
@@ -78,6 +90,31 @@ export function ConcertsFilterBar({
   return (
     <View style={styles.container}>
       <View style={styles.pillsRow}>
+        {/* Rendered only once something is followed. A control that can only
+            ever return an empty list is worse than no control, and hiding it
+            until it works also keeps the row from growing for people who have
+            not followed anything yet. Deliberately a visible pill rather than
+            an item inside the Filters dropdown -- menus hide options, and this
+            is the one filter that makes the list personal. */}
+        {followCount > 0 && onFollowingOnlyChange && (
+          <Pressable
+            onPress={() => onFollowingOnlyChange(!followingOnly)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: followingOnly }}
+            accessibilityLabel={
+              followingOnly
+                ? `Showing only shows you follow${typeof resultCount === 'number' ? `, ${resultCount} shows` : ''}. Tap to show all.`
+                : `Show only shows from the ${followCount} artists and venues you follow`
+            }
+            style={({ pressed }) => pressed && styles.pressed}>
+            <ThemedView type={followingOnly ? 'backgroundSelected' : 'backgroundElement'} style={styles.cityPill}>
+              <ThemedText type="smallBold" style={followingOnly ? { color: theme.accentText } : undefined}>
+                {followingOnly ? '✓ Following' : 'Following'}
+              </ThemedText>
+            </ThemedView>
+          </Pressable>
+        )}
+
         <View style={styles.pillWrapper}>
           <Pressable
             onPress={() => setCityMenuOpen((open) => !open)}

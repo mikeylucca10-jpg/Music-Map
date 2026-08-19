@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 
 import { isPointInMultiPolygon } from '@/lib/geo';
 import { dateKeyFor, formatWeekRangeLabel, getNycDateKey } from '@/lib/format-date';
+import { followKey } from '@/services/follows';
 import { City, Concert } from '@/types/concert';
 
 export const CATEGORIES = [
@@ -27,6 +28,25 @@ const KEYWORD_MATCHERS: Partial<Record<Category, RegExp>> = {
 };
 
 const MAX_WEEKS_AHEAD = 8;
+
+/**
+ * Whether a show comes from something the viewer follows.
+ *
+ * Venue follows deliberately match every show in that room, not just ones by
+ * artists already followed. That is the whole point of following a venue: a
+ * trusted room is how you meet acts you have never heard of, and it is the gap
+ * every competitor leaves open by keying discovery on artists alone.
+ *
+ * Matched on normalised names because no source supplies a stable artist id.
+ */
+export function matchesFollows(
+  concert: Concert,
+  followedArtistKeys: Set<string>,
+  followedVenueKeys: Set<string>,
+) {
+  if (followedVenueKeys.has(followKey(concert.venueName))) return true;
+  return concert.artist ? followedArtistKeys.has(followKey(concert.artist)) : false;
+}
 
 // The helpers below are exported purely so the unit tests can reach them
 // (see __tests__/use-concerts-filters.test.ts) — they're pure functions with
@@ -113,7 +133,17 @@ function isWithinBorough(concert: Concert, borough: NonNullable<City['boroughs']
   return isPointInMultiPolygon(concert.latitude, concert.longitude, borough.boundary);
 }
 
-export function useConcertsFilters(concerts: Concert[], city: City) {
+/**
+ * @param follows what the signed-in viewer follows. Empty for signed-out
+ *   users, which is also why the Following control only renders when this is
+ *   non-empty — a filter that can only ever return nothing is worse than absent.
+ */
+export function useConcertsFilters(
+  concerts: Concert[],
+  city: City,
+  follows: { kind: string; key: string }[] = [],
+) {
+  const [followingOnly, setFollowingOnly] = useState(false);
   const [category, setCategory] = useState<Category>('All');
   const [boroughId, setBoroughId] = useState<string | null>(null);
   const [dateKey, setDateKey] = useState<string | null>(null);
@@ -130,6 +160,15 @@ export function useConcertsFilters(concerts: Concert[], city: City) {
     setBoroughId(null);
     setWeekOffset(0);
   }
+
+  const followedArtistKeys = useMemo(
+    () => new Set(follows.filter((f) => f.kind === 'artist').map((f) => f.key)),
+    [follows],
+  );
+  const followedVenueKeys = useMemo(
+    () => new Set(follows.filter((f) => f.kind === 'venue').map((f) => f.key)),
+    [follows],
+  );
 
   const selectedBorough = city.boroughs?.find((borough) => borough.id === boroughId) ?? null;
 
@@ -219,11 +258,13 @@ export function useConcertsFilters(concerts: Concert[], city: City) {
     const now = new Date();
     return concerts.filter((concert) => {
       if (!matchesCategory(concert, category, now, weekOffset)) return false;
+      if (followingOnly && !matchesFollows(concert, followedArtistKeys, followedVenueKeys))
+        return false;
       if (selectedBorough && !isWithinBorough(concert, selectedBorough)) return false;
       if (dateKey) return getNycDateKey(new Date(concert.startDateTime)) === dateKey;
       return isWithinActiveWindow(concert, category, weekOffset, now);
     });
-  }, [concerts, category, selectedBorough, dateKey, weekOffset]);
+  }, [concerts, category, selectedBorough, dateKey, weekOffset, followingOnly, followedArtistKeys, followedVenueKeys]);
 
   return {
     category,
@@ -253,6 +294,10 @@ export function useConcertsFilters(concerts: Concert[], city: City) {
     // changed or cleared.
     weekNavRelevant: category !== 'Pop-ups',
     weekNights,
+    followingOnly,
+    setFollowingOnly,
+    /** Drives whether the Following pill renders at all. */
+    followCount: follows.length,
     nextShowAhead,
     /**
      * True when filters are the reason nothing is showing, rather than the

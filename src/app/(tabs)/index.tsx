@@ -13,6 +13,7 @@ import { useApplyDefaultCity } from '@/hooks/use-apply-default-city';
 import { useAuth } from '@/hooks/use-auth';
 import { useConcertsFilters } from '@/hooks/use-concerts-filters';
 import { useEdmConcerts } from '@/hooks/use-edm-concerts';
+import { useFollows } from '@/hooks/use-follows';
 import { useProfile } from '@/hooks/use-profile';
 import { useSavedConcerts } from '@/hooks/use-saved-concerts';
 import { useUserLocation } from '@/hooks/use-user-location';
@@ -27,6 +28,8 @@ import { CITIES, ConcertSummary } from '@/types/concert';
 export default function HomeScreen() {
   const [city, setCity] = useState(CITIES[0]);
   const { concerts, isLoading, error, classifiedError, refresh } = useEdmConcerts(city);
+  const { session } = useAuth();
+  const { follows } = useFollows(session?.user.id ?? null);
   const {
     category,
     setCategory,
@@ -43,12 +46,14 @@ export default function HomeScreen() {
     weekNavRelevant,
     setWeekOffset,
     weekNights,
+    followingOnly,
+    setFollowingOnly,
+    followCount,
     nextShowAhead,
     hasAnyConcerts,
     filteredConcerts,
-  } = useConcertsFilters(concerts, city);
+  } = useConcertsFilters(concerts, city, follows);
   const theme = useTheme();
-  const { session } = useAuth();
   const { profile } = useProfile(session?.user.id ?? null);
   useApplyDefaultCity(profile, setCity);
   const { isSaved, isSavePending, toggleSave } = useSavedConcerts(session?.user.id ?? null);
@@ -98,6 +103,10 @@ export default function HomeScreen() {
         weekNavRelevant={weekNavRelevant}
         setWeekOffset={setWeekOffset}
         weekNights={weekNights}
+        followingOnly={followingOnly}
+        onFollowingOnlyChange={setFollowingOnly}
+        followCount={followCount}
+        resultCount={filteredConcerts.length}
       />
 
       {isLoading && (
