@@ -299,11 +299,15 @@ export function ConcertsFilterBar({
               Communicating filter state means saying how much survived the
               filter, not just that one is on — and a lone link floating on its
               own row read as an orphan with nothing to anchor it. */}
-          <ThemedText type="small" themeColor="textSecondary" style={styles.resetCount}>
-            {typeof resultCount === 'number'
-              ? `${resultCount} ${resultCount === 1 ? 'show' : 'shows'}`
-              : ''}
-          </ThemedText>
+          {typeof resultCount === 'number' ? (
+            <ThemedView type="backgroundElement" style={styles.resetChip}>
+              <ThemedText type="small" themeColor="textSecondary" style={styles.resetChipLabel}>
+                {resultCount} {resultCount === 1 ? 'show' : 'shows'}
+              </ThemedText>
+            </ThemedView>
+          ) : (
+            <View />
+          )}
           <Pressable
             onPress={onResetFilters}
             accessibilityRole="button"
@@ -311,14 +315,19 @@ export function ConcertsFilterBar({
               .map((filter) => filter.label)
               .join(', ')}. Back to this week, all shows.`}
             hitSlop={10}
-            style={({ pressed }) => [styles.resetButton, pressed && styles.pressed]}>
-            <ThemedText type="small" style={{ color: theme.accentText }}>
-              {activeFilters.length === 1
-                ? activeFilters[0].id === 'week'
-                  ? 'Back to this week'
-                  : `Clear ${activeFilters[0].label}`
-                : `Clear all ${activeFilters.length}`}
-            </ThemedText>
+            style={({ pressed }) => [pressed && styles.pressed]}>
+            <ThemedView type="backgroundElement" style={styles.resetChip}>
+              <ThemedText
+                type="smallBold"
+                numberOfLines={1}
+                style={[styles.resetChipLabel, { color: theme.accentText }]}>
+                {activeFilters.length === 1
+                  ? activeFilters[0].id === 'week'
+                    ? 'Back to this week'
+                    : `Clear ${activeFilters[0].label}`
+                  : `Clear all ${activeFilters.length}`}
+              </ThemedText>
+            </ThemedView>
           </Pressable>
         </View>
       )}
@@ -403,13 +412,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.one,
   },
-  resetCount: {
-    paddingHorizontal: Spacing.one,
+  // Both ends are solid chips rather than bare text. On Explore this whole bar
+  // is absolutely positioned *over* the Leaflet map, where light tiles sit
+  // directly behind it — every other control there is already a filled pill for
+  // that reason, and the reset row was the one thing relying on the dark app
+  // background it does not have on that screen. Same treatment as the pills
+  // above it, so it reads on either ground rather than only on Home's.
+  resetChip: {
+    paddingHorizontal: Spacing.two + 2,
+    paddingVertical: Spacing.one + 2,
+    borderRadius: Radius.pill,
   },
-  resetButton: {
-    paddingVertical: Spacing.one,
-    paddingHorizontal: Spacing.one,
-  },
+  resetChipLabel: { fontSize: Fonts.size.xs },
   cityPill: {
     alignSelf: 'flex-start',
     paddingHorizontal: Spacing.two + 2,
