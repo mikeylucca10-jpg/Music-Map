@@ -6,10 +6,20 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { dateKeyFor, getNycDateKey } from '@/lib/format-date';
+import { dateKeyFor, getConcertDateKey } from '@/lib/format-date';
 
 type DatePickerSheetProps = {
   visible: boolean;
+  /**
+   * IANA zone of the city being browsed, used only to decide which day is
+   * outlined as "today".
+   *
+   * The grid arithmetic below stays on device-local time on purpose -- which
+   * weekday the 1st lands on is integer calendar maths, not an instant -- but
+   * "today" has to mean today *in the city you are looking at*, or someone
+   * browsing LA from New York after 9pm sees tomorrow outlined.
+   */
+  timeZone: string;
   selectedDateKey: string | null;
   onApply: (dateKey: string | null) => void;
   onClose: () => void;
@@ -49,6 +59,7 @@ function getCalendarCells(year: number, month: number): (number | null)[] {
 
 export function DatePickerSheet({
   visible,
+  timeZone,
   selectedDateKey,
   onApply,
   onClose,
@@ -58,7 +69,7 @@ export function DatePickerSheet({
 }: DatePickerSheetProps) {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
-  const todayKey = getNycDateKey(new Date());
+  const todayKey = getConcertDateKey(new Date(), timeZone);
   const today = parseDateKey(todayKey);
 
   const [pendingDateKey, setPendingDateKey] = useState(selectedDateKey);

@@ -27,6 +27,20 @@ export type Concert = {
   artist?: string;
   url: string;
   startDateTime: string;
+  /**
+   * IANA timezone of the venue, e.g. "America/Los_Angeles".
+   *
+   * Every concert time in the app is rendered in *this* zone rather than the
+   * viewer's, which is what the ticketing platforms do: a 9pm Los Angeles show
+   * is 9pm, because that is what the ticket says and what you would tell a
+   * friend. Rendering it on a New York viewer's clock would make it "12:00 AM"
+   * the next day — right about the instant, wrong about the event.
+   *
+   * Optional because a future source may not supply one; callers fall back to
+   * the city's zone, then DEFAULT_TIME_ZONE. Ticketmaster supplies it on every
+   * listing measured so far.
+   */
+  timezone?: string;
   venueName: string;
   address: string;
   latitude: number;
@@ -51,6 +65,11 @@ export type ConcertSummary = Pick<
   | 'artist'
   | 'url'
   | 'startDateTime'
+  // Included because every one of these surfaces renders the start time, and
+  // a time without its zone is exactly the bug this field exists to fix. It
+  // also has to persist with saved concerts: a saved LA show still has to read
+  // 9pm after you fly home.
+  | 'timezone'
   | 'venueName'
   | 'address'
   | 'imageUrl'

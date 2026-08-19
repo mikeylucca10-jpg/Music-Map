@@ -102,7 +102,7 @@ export function ConcertDetailSheet({
                 distinct as an accent-coloured link, and the distance recedes
                 as secondary text. */}
             <View style={styles.metaRows}>
-              <ThemedText type="default">{formatConcertDateTime(concert.startDateTime)}</ThemedText>
+              <ThemedText type="default">{formatConcertDateTime(concert.startDateTime, concert.timezone)}</ThemedText>
               {directionsUrl ? (
                 <Pressable
                   onPress={() => Linking.openURL(directionsUrl)}

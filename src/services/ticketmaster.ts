@@ -11,6 +11,8 @@ type TicketmasterVenue = {
   city?: { name?: string };
   state?: { stateCode?: string };
   location?: { latitude?: string; longitude?: string };
+  /** IANA zone, e.g. "America/Los_Angeles". See Concert.timezone. */
+  timezone?: string;
 };
 
 type TicketmasterAttraction = {
@@ -30,7 +32,7 @@ type TicketmasterEvent = {
   id: string;
   name: string;
   url: string;
-  dates?: { start?: { dateTime?: string } };
+  dates?: { start?: { dateTime?: string }; timezone?: string };
   images?: TicketmasterImage[];
   priceRanges?: { min?: number; max?: number; currency?: string }[];
   ageRestrictions?: { legalAgeEnforced?: boolean };
@@ -339,6 +341,11 @@ function normalizeEvents(data: TicketmasterResponse): Concert[] {
       artist: event._embedded?.attractions?.[0]?.name,
       url: event.url,
       startDateTime,
+      // venue.timezone first: measured present on 86/86 NYC and 100/100 LA
+      // listings, where the event-level dates.timezone was missing on ~20% of
+      // both. The venue is also the more correct source of the two -- a show
+      // happens at a place, and that place has one clock.
+      timezone: venue.timezone ?? event.dates?.timezone,
       venueName: venue.name ?? 'Venue TBA',
       address: [venue.address?.line1, venue.city?.name, venue.state?.stateCode]
         .filter(Boolean)

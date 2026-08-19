@@ -1,7 +1,12 @@
 import { useMemo, useState } from 'react';
 
 import { isPointInMultiPolygon } from '@/lib/geo';
-import { dateKeyFor, formatDateKeyLabel, formatWeekRangeLabel, getNycDateKey } from '@/lib/format-date';
+import {
+  dateKeyFor,
+  formatDateKeyLabel,
+  formatWeekRangeLabel,
+  getConcertDateKey,
+} from '@/lib/format-date';
 import { followKey } from '@/services/follows';
 import { City, Concert } from '@/types/concert';
 
@@ -186,9 +191,10 @@ export function useConcertsFilters(
   // to the night already selected would flatten every other bar to zero and
   // make the control useless the moment it was used.
   //
-  // Bars are keyed by NYC calendar day via getNycDateKey, matching how the date
+  // Bars are keyed by the venue's own calendar day, matching how the date
   // filter itself compares, so a late-night show lands on the night people
-  // would say it belongs to rather than the viewer's local date.
+  // would say it belongs to rather than the viewer's local date. "Today" uses
+  // the city's zone instead — that marker is about the city being browsed.
   const weekNights = useMemo(() => {
     const now = new Date();
     const inScope = concerts.filter(
@@ -199,11 +205,11 @@ export function useConcertsFilters(
 
     const counts = new Map<string, number>();
     for (const concert of inScope) {
-      const key = getNycDateKey(new Date(concert.startDateTime));
+      const key = getConcertDateKey(new Date(concert.startDateTime), concert.timezone ?? city.timezone);
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
 
-    const todayKey = getNycDateKey(now);
+    const todayKey = getConcertDateKey(now, city.timezone);
     return Array.from({ length: 7 }, (_, index) => {
       const date = new Date(weekStart);
       date.setDate(weekStart.getDate() + index);
@@ -291,10 +297,23 @@ export function useConcertsFilters(
       if (followingOnly && !matchesFollows(concert, followedArtistKeys, followedVenueKeys))
         return false;
       if (selectedBorough && !isWithinBorough(concert, selectedBorough)) return false;
-      if (dateKey) return getNycDateKey(new Date(concert.startDateTime)) === dateKey;
+      if (dateKey)
+        return getConcertDateKey(new Date(concert.startDateTime), concert.timezone ?? city.timezone) === dateKey;
       return isWithinActiveWindow(concert, category, weekOffset, now);
     });
-  }, [concerts, category, selectedBorough, dateKey, weekOffset, followingOnly, followedArtistKeys, followedVenueKeys]);
+  }, [
+    concerts,
+    category,
+    selectedBorough,
+    dateKey,
+    weekOffset,
+    followingOnly,
+    followedArtistKeys,
+    followedVenueKeys,
+    // Only the fallback for concerts that carry no zone of their own, but it
+    // still changes the answer when the city changes, so it belongs here.
+    city.timezone,
+  ]);
 
   return {
     category,

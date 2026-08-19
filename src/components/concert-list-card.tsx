@@ -119,7 +119,7 @@ function ConcertListCardComponent({
           {concert.name}
         </ThemedText>
         <ThemedText type="small" style={styles.overlayMeta} numberOfLines={1}>
-          {formatConcertDateTime(concert.startDateTime)} · {concert.venueName}
+          {formatConcertDateTime(concert.startDateTime, concert.timezone)} · {concert.venueName}
           {distanceLabel ? ` · ${distanceLabel}` : ''}
         </ThemedText>
       </View>
@@ -157,7 +157,7 @@ function ConcertListCardComponent({
         )}
       </View>
       <ThemedText type="small" themeColor="textSecondary">
-        {formatConcertDateTime(concert.startDateTime)}
+        {formatConcertDateTime(concert.startDateTime, concert.timezone)}
       </ThemedText>
       <ThemedText type="small" themeColor="textSecondary">
         {concert.venueName}

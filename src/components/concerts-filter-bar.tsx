@@ -199,6 +199,7 @@ export function ConcertsFilterBar({
 
             <DatePickerSheet
               visible={datePickerOpen}
+              timeZone={city.timezone}
               selectedDateKey={selectedDateKey}
               onApply={onDateChange}
               onClose={() => setDatePickerOpen(false)}

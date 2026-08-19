@@ -28,7 +28,11 @@ import { useSavedConcerts } from '@/hooks/use-saved-concerts';
 import { useTheme } from '@/hooks/use-theme';
 import { useUserLocation } from '@/hooks/use-user-location';
 import { getDirectionsUrl } from '@/lib/directions';
-import { formatConcertDateTime } from '@/lib/format-date';
+import {
+  formatConcertDateTime,
+  formatTimeZoneAbbreviation,
+  shouldShowTimeZone,
+} from '@/lib/format-date';
 import { distanceLabelFor } from '@/lib/geo';
 import { getTicketSources, TicketSource } from '@/lib/ticket-sources';
 import { CITIES, Concert, ConcertSummary } from '@/types/concert';
@@ -181,7 +185,20 @@ export default function ConcertScreen() {
               at full size, the address is distinct as an accent link, and the
               distance recedes as secondary text. */}
           <View style={styles.metaRows}>
-            <ThemedText type="default">{formatConcertDateTime(concert.startDateTime)}</ThemedText>
+            {/* The zone is spelled out only when the viewer's clock disagrees
+                with the venue's — "9:00 PM PDT" read from New York, plain
+                "9:00 PM" read from Los Angeles. Stamping it on every row would
+                be noise on the overwhelmingly common case of browsing your own
+                city, but leaving it off entirely means a cross-country time
+                silently reads as local. This is the screen where someone
+                decides whether they can actually make it, so it earns the
+                clarification here and not on the list card. */}
+            <ThemedText type="default">
+              {formatConcertDateTime(concert.startDateTime, concert.timezone)}
+              {shouldShowTimeZone(concert.startDateTime, concert.timezone)
+                ? ` ${formatTimeZoneAbbreviation(concert.startDateTime, concert.timezone)}`
+                : ''}
+            </ThemedText>
             {directionsUrl ? (
               <Pressable
                 onPress={() => Linking.openURL(directionsUrl)}

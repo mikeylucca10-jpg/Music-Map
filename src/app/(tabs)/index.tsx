@@ -162,14 +162,17 @@ export default function HomeScreen() {
             <Pressable
               onPress={() => setWeekOffset(nextShowAhead.weekOffset)}
               accessibilityRole="button"
-              accessibilityLabel={`Jump to ${formatConcertDateTime(nextShowAhead.concert.startDateTime)}, ${nextShowAhead.concert.name}`}
+              accessibilityLabel={`Jump to ${formatConcertDateTime(nextShowAhead.concert.startDateTime, nextShowAhead.concert.timezone)}, ${nextShowAhead.concert.name}`}
               style={({ pressed }) => [
                 styles.jumpButton,
                 { backgroundColor: theme.accent },
                 pressed && styles.pressed,
               ]}>
               <ThemedText type="smallBold" style={{ color: theme.accentInk }}>
-                {formatConcertDateTime(nextShowAhead.concert.startDateTime)}
+                {formatConcertDateTime(
+                  nextShowAhead.concert.startDateTime,
+                  nextShowAhead.concert.timezone,
+                )}
               </ThemedText>
             </Pressable>
           )}
