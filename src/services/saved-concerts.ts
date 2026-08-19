@@ -8,6 +8,9 @@ export async function fetchSavedConcerts(userId: string): Promise<SavedConcert[]
       'concert_id, concert_name, artist, venue_name, address, start_date_time, concert_url, image_url, price_min, price_max, price_currency',
     )
     .eq('user_id', userId)
+    // Everything is fetched, upcoming and past. The split happens in the hook so
+    // toggling between them is instant and nothing a person saved is hidden by a
+    // query they cannot change.
     .order('start_date_time', { ascending: true });
   if (error) throw new Error(error.message);
 

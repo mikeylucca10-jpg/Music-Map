@@ -5,7 +5,7 @@ import { DatePickerSheet } from '@/components/date-picker-sheet';
 import { NightDensityStrip, type WeekNight } from '@/components/night-density-strip';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing } from '@/constants/theme';
 import { Category } from '@/hooks/use-concerts-filters';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDateKeyLabel } from '@/lib/format-date';
@@ -90,37 +90,12 @@ export function ConcertsFilterBar({
   return (
     <View style={styles.container}>
       <View style={styles.pillsRow}>
-        {/* Rendered only once something is followed. A control that can only
-            ever return an empty list is worse than no control, and hiding it
-            until it works also keeps the row from growing for people who have
-            not followed anything yet. Deliberately a visible pill rather than
-            an item inside the Filters dropdown -- menus hide options, and this
-            is the one filter that makes the list personal. */}
-        {followCount > 0 && onFollowingOnlyChange && (
-          <Pressable
-            onPress={() => onFollowingOnlyChange(!followingOnly)}
-            accessibilityRole="button"
-            accessibilityState={{ selected: followingOnly }}
-            accessibilityLabel={
-              followingOnly
-                ? `Showing only shows you follow${typeof resultCount === 'number' ? `, ${resultCount} shows` : ''}. Tap to show all.`
-                : `Show only shows from the ${followCount} artists and venues you follow`
-            }
-            style={({ pressed }) => pressed && styles.pressed}>
-            <ThemedView type={followingOnly ? 'backgroundSelected' : 'backgroundElement'} style={styles.cityPill}>
-              <ThemedText type="smallBold" style={followingOnly ? { color: theme.accentText } : undefined}>
-                {followingOnly ? '✓ Following' : 'Following'}
-              </ThemedText>
-            </ThemedView>
-          </Pressable>
-        )}
-
         <View style={styles.pillWrapper}>
           <Pressable
             onPress={() => setCityMenuOpen((open) => !open)}
             style={({ pressed }) => pressed && styles.pressed}>
             <ThemedView type="backgroundElement" style={styles.cityPill}>
-              <ThemedText type="smallBold">{cityPillLabel} ▾</ThemedText>
+              <ThemedText type="smallBold" style={styles.pillLabel} numberOfLines={1}>{cityPillLabel} ▾</ThemedText>
             </ThemedView>
           </Pressable>
 
@@ -169,7 +144,7 @@ export function ConcertsFilterBar({
               onPress={() => setDatePickerOpen(true)}
               style={({ pressed }) => pressed && styles.pressed}>
               <ThemedView type="backgroundElement" style={styles.cityPill}>
-                <ThemedText type="smallBold">{selectedDateLabel} ▾</ThemedText>
+                <ThemedText type="smallBold" style={styles.pillLabel} numberOfLines={1}>{selectedDateLabel} ▾</ThemedText>
               </ThemedView>
             </Pressable>
 
@@ -190,7 +165,7 @@ export function ConcertsFilterBar({
             onPress={() => setFiltersMenuOpen((open) => !open)}
             style={({ pressed }) => pressed && styles.pressed}>
             <ThemedView type="backgroundElement" style={styles.cityPill}>
-              <ThemedText type="smallBold">Filters ▾</ThemedText>
+              <ThemedText type="smallBold" style={styles.pillLabel}>Filters ▾</ThemedText>
             </ThemedView>
           </Pressable>
 
@@ -219,7 +194,33 @@ export function ConcertsFilterBar({
             </ThemedView>
           )}
         </View>
-      </View>
+        {/* Rendered only once something is followed. A control that can only
+            ever return an empty list is worse than no control, and hiding it
+            until it works also keeps the row from growing for people who have
+            not followed anything yet. Deliberately a visible pill rather than
+            an item inside the Filters dropdown -- menus hide options, and this
+            is the one filter that makes the list personal. */}
+        {followCount > 0 && onFollowingOnlyChange && (
+          <Pressable
+            onPress={() => onFollowingOnlyChange(!followingOnly)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: followingOnly }}
+            accessibilityLabel={
+              followingOnly
+                ? `Showing only shows you follow${typeof resultCount === 'number' ? `, ${resultCount} shows` : ''}. Tap to show all.`
+                : `Show only shows from the ${followCount} artists and venues you follow`
+            }
+            style={({ pressed }) => pressed && styles.pressed}>
+            <ThemedView type={followingOnly ? 'backgroundSelected' : 'backgroundElement'} style={styles.cityPill}>
+              <ThemedText
+                type="smallBold"
+                numberOfLines={1}
+                style={[styles.pillLabel, followingOnly ? { color: theme.accentText } : null]}>
+                {followingOnly ? '✓ Following' : 'Following'}
+              </ThemedText>
+            </ThemedView>
+          </Pressable>
+        )}      </View>
 
       {/* The old "‹ This Week ›" row lived here. It has been replaced by
           NightDensityStrip, which does the same paging and additionally shows
@@ -264,7 +265,10 @@ const styles = StyleSheet.create({
   },
   pillsRow: {
     flexDirection: 'row',
-    gap: Spacing.two,
+    gap: Spacing.one,
+    // Everything fits one line: horizontally scrolling filter rows hide the
+    // options past the edge, and lateral movement inside a vertical page is a
+    // documented discoverability problem. Four compact pills fit 393pt.
     // Wins the stacking tie against the weekNavRow sibling below it (both
     // default to z-index:0 otherwise, and DOM order would let weekNavRow
     // paint over an open dropdown's bottom edge).
@@ -275,10 +279,13 @@ const styles = StyleSheet.create({
   },
   cityPill: {
     alignSelf: 'flex-start',
-    paddingHorizontal: Spacing.three,
+    paddingHorizontal: Spacing.two + 2,
     paddingVertical: Spacing.two,
     borderRadius: Radius.pill,
   },
+  // Small label so four pills fit; vertical padding untouched so the tap
+  // target stays full height even though the pill is narrower.
+  pillLabel: { fontSize: Fonts.size.xs },
   cityMenu: {
     position: 'absolute',
     top: 44,

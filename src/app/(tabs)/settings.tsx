@@ -39,12 +39,16 @@ export default function SettingsScreen() {
   const { profile, error: profileError, updateProfile } = useProfile(userId);
   const {
     savedConcerts,
+    pastConcerts,
     isLoading: isSavedConcertsLoading,
     isSavePending,
     error: savedConcertsError,
     toggleSave,
   } = useSavedConcerts(userId);
   const [mode, setMode] = useState<'signIn' | 'signUp'>('signIn');
+  // Past shows stay reachable rather than vanishing: a concert you went to is a
+  // record worth keeping, it just should not sit at the top of your plans.
+  const [savedScope, setSavedScope] = useState<'upcoming' | 'past'>('upcoming');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -249,9 +253,27 @@ export default function SettingsScreen() {
 
       {isSupabaseConfigured && !isLoading && session && (
         <ThemedView style={styles.savedSection}>
-          <ThemedText type="eyebrow" themeColor="textSecondary" style={styles.savedHeading}>
-            Saved Concerts
-          </ThemedText>
+          <View style={styles.savedHeadingRow}>
+            <ThemedText type="eyebrow" themeColor="textSecondary">
+              {savedScope === 'upcoming' ? 'Saved Concerts' : 'Past Concerts'}
+            </ThemedText>
+            {(pastConcerts.length > 0 || savedScope === 'past') && (
+              <Pressable
+                onPress={() => setSavedScope(savedScope === 'upcoming' ? 'past' : 'upcoming')}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  savedScope === 'upcoming'
+                    ? `Show ${pastConcerts.length} past concerts`
+                    : 'Show upcoming concerts'
+                }
+                style={({ pressed }) => pressed && styles.pressed}>
+                <ThemedText type="smallBold" style={{ color: theme.accentText }}>
+                  {savedScope === 'upcoming' ? `Past (${pastConcerts.length})` : 'Upcoming'}
+                </ThemedText>
+              </Pressable>
+            )}
+          </View>
           {savedConcertsError && (
             <ThemedText type="small" themeColor="textSecondary">
               {savedConcertsError}
@@ -277,7 +299,7 @@ export default function SettingsScreen() {
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.savedRow}
-              data={savedConcerts}
+              data={savedScope === 'upcoming' ? savedConcerts : pastConcerts}
               keyExtractor={keyExtractor}
               getItemLayout={getSavedItemLayout}
               renderItem={renderSavedConcert}
@@ -486,6 +508,13 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
   },
   followLabel: { flex: 1, gap: Spacing.half },
+  savedHeadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.four,
+    marginBottom: Spacing.one,
+  },
   savedHeading: {
     marginBottom: Spacing.one,
     paddingHorizontal: Spacing.four,

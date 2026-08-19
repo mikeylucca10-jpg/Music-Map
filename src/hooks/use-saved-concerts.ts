@@ -15,8 +15,30 @@ export function useSavedConcerts(userId: string | null) {
     fetcher,
   );
 
-  const savedConcerts = data ?? [];
-  const savedIds = useMemo(() => new Set((data ?? []).map((c) => c.id)), [data]);
+  const all = useMemo(() => data ?? [], [data]);
+
+  /**
+   * Split by whether the show has happened, not filtered at the query.
+   *
+   * The list is ordered ascending with no lower bound, so before this a
+   * concert that had already finished sat at the *top* of the saved row --
+   * the first thing you saw was the thing you could no longer go to. Past
+   * shows are still fetched and still reachable, because a saved concert you
+   * attended is a record worth keeping; it just stops being offered as a plan.
+   */
+  const { savedConcerts, pastConcerts } = useMemo(() => {
+    const now = new Date();
+    const upcoming = [];
+    const past = [];
+    for (const concert of all) {
+      if (new Date(concert.startDateTime) >= now) upcoming.push(concert);
+      else past.push(concert);
+    }
+    // Past reads newest-first: the show you just went to is the one you are
+    // most likely looking for.
+    return { savedConcerts: upcoming, pastConcerts: past.reverse() };
+  }, [all]);
+  const savedIds = useMemo(() => new Set(all.map((c) => c.id)), [all]);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
   const [toggleError, setToggleError] = useState<string | null>(null);
 
@@ -52,6 +74,7 @@ export function useSavedConcerts(userId: string | null) {
 
   return {
     savedConcerts,
+    pastConcerts,
     isSaved,
     isSavePending,
     isLoading,
