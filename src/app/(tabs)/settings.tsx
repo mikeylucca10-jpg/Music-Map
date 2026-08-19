@@ -217,9 +217,21 @@ export default function SettingsScreen() {
             around -- which is why it sits in Settings rather than taking a tab. */}
         {follows.length > 0 && (
           <ThemedView style={styles.savedSection}>
-            <ThemedText type="eyebrow" themeColor="textSecondary" style={styles.savedHeading}>
-              Following
-            </ThemedText>
+            <View style={styles.savedHeadingRow}>
+              <ThemedText type="eyebrow" themeColor="textSecondary">
+                Following
+              </ThemedText>
+              <Pressable
+                onPress={() => router.push('/follow-picker')}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Find more artists and venues to follow"
+                style={({ pressed }) => pressed && styles.pressed}>
+                <ThemedText type="smallBold" style={{ color: theme.accentText }}>
+                  Find more
+                </ThemedText>
+              </Pressable>
+            </View>
             <View style={styles.followList}>
               {follows.map((follow) => (
                 <ThemedView

@@ -46,6 +46,8 @@ export default function RootLayout() {
         <Stack.Screen name="concert/[id]" options={{ animation: 'slide_from_bottom' }} />
         {/* Parked, not a tab, but reachable at /ask -- it has to sit outside
             (tabs) for that, exactly like the legal pages. */}
+        {/* Slides up: it is a task you come back from, not a place you go. */}
+        <Stack.Screen name="follow-picker" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="ask" />
         <Stack.Screen name="privacy-policy" />
         <Stack.Screen name="terms" />

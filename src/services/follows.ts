@@ -67,3 +67,36 @@ export async function removeFollow(userId: string, kind: FollowKind, name: strin
     .eq(keyCol, followKey(name));
   if (error) throw new Error(error.message);
 }
+
+/**
+ * Follow several things at once.
+ *
+ * A picker where someone taps six artists should be one request, not six. Six
+ * sequential round trips is both slow and partially-failable — you would end up
+ * with four follows and an error, and no obvious way to tell which four.
+ *
+ * Artists and venues still go to their own tables, so this is at most two
+ * requests regardless of how many things were selected.
+ */
+export async function addFollows(
+  userId: string,
+  items: { kind: FollowKind; name: string }[],
+): Promise<void> {
+  const byKind = { artist: [] as string[], venue: [] as string[] };
+  for (const item of items) byKind[item.kind].push(item.name);
+
+  await Promise.all(
+    (Object.keys(byKind) as FollowKind[])
+      .filter((kind) => byKind[kind].length > 0)
+      .map(async (kind) => {
+        const { table, keyCol, nameCol } = TABLE[kind];
+        const rows = byKind[kind].map((name) => ({
+          user_id: userId,
+          [keyCol]: followKey(name),
+          [nameCol]: name,
+        }));
+        const { error } = await supabase.from(table).upsert(rows);
+        if (error) throw new Error(error.message);
+      }),
+  );
+}
