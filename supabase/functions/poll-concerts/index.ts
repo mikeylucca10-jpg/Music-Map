@@ -116,10 +116,25 @@ Deno.serve(async (req) => {
 
   // Deployed with --no-verify-jwt, so this check is the only thing standing
   // between the internet and a job that burns Ticketmaster quota on every call.
-  // Compared against the service role key because the only legitimate caller is
-  // the cron job, which runs with it.
-  const auth = req.headers.get('Authorization') ?? '';
-  if (auth !== `Bearer ${serviceKey}`) {
+  //
+  // A dedicated secret rather than a comparison against SUPABASE_SERVICE_ROLE_KEY.
+  // That was the first attempt and it failed in a way worth recording: Supabase
+  // is mid-migration from legacy JWT keys to the sb_secret_/sb_publishable_
+  // format, and what gets injected as SUPABASE_SERVICE_ROLE_KEY is not reliably
+  // the key you hold in your hand -- the legacy service_role JWT reached this
+  // function and still did not match. Pinning authorisation to a value we set
+  // ourselves removes the guesswork and survives the migration either way.
+  //
+  // The token is deliberately not decoded and trusted: a JWT's role claim is
+  // meaningless without verifying the signature, and anyone can mint an
+  // unsigned token claiming service_role.
+  const expected = Deno.env.get('POLL_SECRET');
+  if (!expected) {
+    // Fail closed. An unset secret must never mean "let everyone in".
+    return json({ error: 'Server is missing configuration.' }, 500);
+  }
+  const offered = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
+  if (offered !== expected) {
     return json({ error: 'Not authorised.' }, 401);
   }
 
