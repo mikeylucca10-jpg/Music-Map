@@ -11,6 +11,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ExternalLink } from '@/components/external-link';
@@ -127,7 +128,8 @@ export default function ConcertScreen() {
         showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
           {concert.imageUrl ? (
-            <Image
+            <AnimatedPoster
+              sharedTransitionTag={`poster-${concert.id}`}
               source={{ uri: concert.imageUrl }}
               style={styles.heroImage}
               contentFit="cover"
@@ -279,6 +281,9 @@ function TicketSourceRow({ source }: { source: TicketSource }) {
  * subject, not a header for the text below it.
  */
 const HERO_ASPECT = 4 / 5;
+
+/** Receives the poster handed over from the card it was tapped on. */
+const AnimatedPoster = Animated.createAnimatedComponent(Image);
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },

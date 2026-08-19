@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { Image } from 'expo-image';
+import Animated from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
@@ -19,6 +20,16 @@ import { ConcertSummary } from '@/types/concert';
  * is ever added, every one of these has to move into the component body.
  */
 const HEART_BUTTON_SIZE = 36;
+
+/**
+ * The poster morphs into the detail screen's hero rather than cutting to it.
+ *
+ * Only the tag is used, not SharedTransitionBoundary: the boundary renders a
+ * native Fabric component that does not exist on web, where this app is
+ * developed. An unrecognised prop is ignored there instead, so the web build
+ * simply cuts and native gets the transition.
+ */
+const AnimatedPoster = Animated.createAnimatedComponent(Image);
 
 type ConcertListCardProps = {
   concert: ConcertSummary;
@@ -88,7 +99,8 @@ function ConcertListCardComponent({
           concert, so a recycled row cannot briefly paint the previous poster.
           The box is already reserved by aspectRatio + the background fill, so
           nothing reflows when the image lands. */}
-      <Image
+      <AnimatedPoster
+        sharedTransitionTag={`poster-${concert.id}`}
         source={{ uri: concert.imageUrl }}
         style={styles.image}
         contentFit="cover"
