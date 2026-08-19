@@ -10,6 +10,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useProfile } from '@/hooks/use-profile';
+import { useFollows } from '@/hooks/use-follows';
 import { useSavedConcerts } from '@/hooks/use-saved-concerts';
 import { useTheme } from '@/hooks/use-theme';
 import { CITIES, SavedConcert } from '@/types/concert';
@@ -52,6 +53,7 @@ export default function SettingsScreen() {
   const [confirmationPendingEmail, setConfirmationPendingEmail] = useState<string | null>(null);
   const [resetEmailSent, setResetEmailSent] = useState<string | null>(null);
 
+  const { follows, isFollowing, isFollowPending, toggleFollow } = useFollows(userId);
   const theme = useTheme();
 
   // Stable identities so ConcertListCard's memo actually holds across renders
@@ -204,6 +206,46 @@ export default function SettingsScreen() {
           </ThemedText>
         </ThemedView>
       )}
+
+      {/* The management half of following: a list of names you prune, as
+            distinct from the home filter, which is a list of shows you browse.
+            Low traffic by nature -- you come here to unfollow, not to look
+            around -- which is why it sits in Settings rather than taking a tab. */}
+        {follows.length > 0 && (
+          <ThemedView style={styles.savedSection}>
+            <ThemedText type="eyebrow" themeColor="textSecondary" style={styles.savedHeading}>
+              Following
+            </ThemedText>
+            <View style={styles.followList}>
+              {follows.map((follow) => (
+                <ThemedView
+                  key={`${follow.kind}:${follow.key}`}
+                  type="backgroundElement"
+                  style={styles.followRow}>
+                  <View style={styles.followLabel}>
+                    <ThemedText type="default" numberOfLines={1}>
+                      {follow.name}
+                    </ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {follow.kind === 'artist' ? 'Artist' : 'Venue'}
+                    </ThemedText>
+                  </View>
+                  <Pressable
+                    onPress={() => toggleFollow(follow.kind, follow.name)}
+                    disabled={isFollowPending(follow.kind, follow.name)}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Unfollow ${follow.name}`}
+                    style={({ pressed }) => pressed && styles.pressed}>
+                    <ThemedText type="smallBold" style={{ color: theme.accentText }}>
+                      {isFollowing(follow.kind, follow.name) ? 'Unfollow' : 'Follow'}
+                    </ThemedText>
+                  </Pressable>
+                </ThemedView>
+              ))}
+            </View>
+          </ThemedView>
+        )}
 
       {isSupabaseConfigured && !isLoading && session && (
         <ThemedView style={styles.savedSection}>
@@ -434,6 +476,16 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     marginTop: Spacing.four,
   },
+  followList: { gap: Spacing.two, paddingHorizontal: Spacing.four },
+  followRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.three,
+    borderRadius: Radius.card,
+    padding: Spacing.three,
+  },
+  followLabel: { flex: 1, gap: Spacing.half },
   savedHeading: {
     marginBottom: Spacing.one,
     paddingHorizontal: Spacing.four,
