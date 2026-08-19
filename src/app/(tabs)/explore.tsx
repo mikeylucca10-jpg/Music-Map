@@ -1,8 +1,8 @@
+import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ConcertDetailSheet } from '@/components/concert-detail-sheet';
 import { ConcertsFilterBar } from '@/components/concerts-filter-bar';
 import { ConcertsMap } from '@/components/concerts-map';
 import { LocationPermissionPrompt } from '@/components/location-permission-prompt';
@@ -14,12 +14,9 @@ import { useAuth } from '@/hooks/use-auth';
 import { useConcertsFilters } from '@/hooks/use-concerts-filters';
 import { useEdmConcerts } from '@/hooks/use-edm-concerts';
 import { useProfile } from '@/hooks/use-profile';
-import { useSavedConcerts } from '@/hooks/use-saved-concerts';
 import { useTheme } from '@/hooks/use-theme';
 import { useUserLocation } from '@/hooks/use-user-location';
-import { getDirectionsUrl } from '@/lib/directions';
-import { distanceLabelFor } from '@/lib/geo';
-import { CITIES, Concert } from '@/types/concert';
+import { CITIES } from '@/types/concert';
 
 export default function ExploreScreen() {
   const safeAreaInsets = useSafeAreaInsets();
@@ -42,11 +39,10 @@ export default function ExploreScreen() {
     setWeekOffset,
     filteredConcerts,
   } = useConcertsFilters(concerts, city);
-  const [selectedConcert, setSelectedConcert] = useState<Concert | null>(null);
+
   const { session } = useAuth();
   const { profile } = useProfile(session?.user.id ?? null);
   useApplyDefaultCity(profile, setCity);
-  const { isSaved, isSavePending, toggleSave } = useSavedConcerts(session?.user.id ?? null);
   const theme = useTheme();
   const {
     status: locationStatus,
@@ -74,7 +70,7 @@ export default function ExploreScreen() {
       <ConcertsMap
         concerts={filteredConcerts}
         city={city}
-        onSelectConcert={setSelectedConcert}
+        onSelectConcert={(concert) => router.push({ pathname: '/concert/[id]', params: { id: concert.id } })}
         userLocation={userLocation}
       />
 
@@ -150,17 +146,6 @@ export default function ExploreScreen() {
         </View>
       )}
 
-      <ConcertDetailSheet
-        concert={selectedConcert}
-        onClose={() => setSelectedConcert(null)}
-        isSaved={selectedConcert && session ? isSaved(selectedConcert.id) : undefined}
-        isSavePending={selectedConcert && session ? isSavePending(selectedConcert.id) : undefined}
-        onToggleSave={
-          selectedConcert && session ? () => toggleSave(selectedConcert) : undefined
-        }
-        distanceLabel={selectedConcert ? distanceLabelFor(userLocation, selectedConcert) : undefined}
-        directionsUrl={selectedConcert ? getDirectionsUrl(selectedConcert) : undefined}
-      />
 
       <LocationPermissionPrompt
         visible={hasPromptedForLocation === false && mapSettled}

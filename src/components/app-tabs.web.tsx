@@ -1,4 +1,5 @@
 import { BlurView } from 'expo-blur';
+import type { Href } from 'expo-router';
 import { Tabs, TabList, TabTrigger, TabSlot, TabTriggerSlotProps, TabListProps } from 'expo-router/ui';
 import { Pressable, View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,7 +15,11 @@ export default function AppTabs() {
       <TabSlot style={{ height: '100%' }} />
       <TabList asChild>
         <CustomTabList>
-          <TabTrigger name="home" href="/" asChild>
+          {/* Cast because the generated route types describe a group index as
+              `/(tabs)/index` or `/index`, and neither is the URL this actually
+              resolves to: `/index` is an unmatched route at runtime, and the
+              group is stripped from real URLs. "/" is what the router serves. */}
+          <TabTrigger name="home" href={"/" as Href} asChild>
             <TabButton icon="home">Home</TabButton>
           </TabTrigger>
           <TabTrigger name="explore" href="/explore" asChild>

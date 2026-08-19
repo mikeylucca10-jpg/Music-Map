@@ -1,29 +1,31 @@
 import { useFonts } from 'expo-font';
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
-import { DisplayFontFamily } from '@/constants/theme';
+import { Colors, DisplayFontFamily } from '@/constants/theme';
 
 SplashScreen.preventAutoHideAsync();
 
-export default function TabLayout() {
+/**
+ * Root stack. The tab bar now lives one level down in `(tabs)/_layout.tsx`, so
+ * routes declared here open *over* the tabs rather than inside them — which is
+ * what lets a show have its own full screen, and what finally makes the legal
+ * pages reachable by URL.
+ */
+export default function RootLayout() {
   const colorScheme = useColorScheme();
 
-  // Archivo Expanded (SemiBold 600) carries the screen titles and the night strip.
-  // Dropped from ExtraBold 800: a lighter display weight reads as editorial calm
-  // rather than shouting, which is the difference between looking designed and
-  // looking loud. Gating the
-  // tree on it avoids a visible reflow: the display face is much wider than the
-  // system fallback, so swapping mid-render would visibly re-lay-out the
-  // header. The splash overlay is still up during this, so the gate is not a
-  // blank screen.
+  // Archivo Expanded (SemiBold 600) carries the screen titles and the night
+  // strip. Dropped from ExtraBold 800 because a lighter display weight reads as
+  // editorial calm rather than shouting.
   //
-  // `error` is treated as ready on purpose. A font that fails to decode should
-  // degrade to the system face, not leave the app stuck behind a splash that
-  // never lifts.
+  // The tree is gated on the font to avoid a visible reflow: the display face is
+  // much wider than the system fallback, so swapping mid-render would re-lay-out
+  // the header. The splash overlay is still up during the gate, so this is not a
+  // blank screen. A decode error counts as ready on purpose — a broken font
+  // should degrade to the system face, not hang behind a splash forever.
   const [fontsLoaded, fontError] = useFonts({
     [DisplayFontFamily]: require('@/assets/fonts/ArchivoExpanded-SemiBold.ttf'),
   });
@@ -33,7 +35,19 @@ export default function TabLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
-      <AppTabs />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: Colors.dark.background },
+        }}>
+        <Stack.Screen name="(tabs)" />
+        {/* Slides up from the bottom: this is a detail *of* the list, and the
+            gesture matches the one that opened it. */}
+        <Stack.Screen name="concert/[id]" options={{ animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="privacy-policy" />
+        <Stack.Screen name="terms" />
+        <Stack.Screen name="reset-password" />
+      </Stack>
     </ThemeProvider>
   );
 }

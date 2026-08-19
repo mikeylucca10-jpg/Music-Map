@@ -1,7 +1,7 @@
+import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 
-import { ConcertDetailSheet } from '@/components/concert-detail-sheet';
 import { ConcertListCard } from '@/components/concert-list-card';
 import { ConcertsFilterBar } from '@/components/concerts-filter-bar';
 import { ScreenScaffold } from '@/components/screen-scaffold';
@@ -17,10 +17,9 @@ import { useProfile } from '@/hooks/use-profile';
 import { useSavedConcerts } from '@/hooks/use-saved-concerts';
 import { useUserLocation } from '@/hooks/use-user-location';
 import { useTheme } from '@/hooks/use-theme';
-import { getDirectionsUrl } from '@/lib/directions';
 import { formatConcertDateTime } from '@/lib/format-date';
 import { distanceLabelFor } from '@/lib/geo';
-import { CITIES, Concert, ConcertSummary } from '@/types/concert';
+import { CITIES, ConcertSummary } from '@/types/concert';
 
 // This is the full concert list — it used to live at /list while Home showed
 // a featured carousel of the same shows. The two were near-duplicates, so the
@@ -53,7 +52,7 @@ export default function HomeScreen() {
   const { profile } = useProfile(session?.user.id ?? null);
   useApplyDefaultCity(profile, setCity);
   const { isSaved, isSavePending, toggleSave } = useSavedConcerts(session?.user.id ?? null);
-  const [selectedConcert, setSelectedConcert] = useState<Concert | null>(null);
+
   // Read-only here — this screen doesn't render the permission prompt (only
   // Explore does), it just picks up the coords if already granted.
   const { coords: userLocation } = useUserLocation();
@@ -67,9 +66,9 @@ export default function HomeScreen() {
   // directions — so recover it by id rather than casting the summary back up.
   const handleSelectConcert = useCallback(
     (summary: ConcertSummary) => {
-      setSelectedConcert(concerts.find((concert) => concert.id === summary.id) ?? null);
+      router.push({ pathname: '/concert/[id]', params: { id: summary.id } });
     },
-    [concerts],
+    [],
   );
   const handleToggleSave = useCallback(
     (concert: ConcertSummary) => toggleSave(concert),
@@ -178,15 +177,6 @@ export default function HomeScreen() {
         ))}
       </ThemedView>
 
-      <ConcertDetailSheet
-        concert={selectedConcert}
-        onClose={() => setSelectedConcert(null)}
-        isSaved={selectedConcert && session ? isSaved(selectedConcert.id) : undefined}
-        isSavePending={selectedConcert && session ? isSavePending(selectedConcert.id) : undefined}
-        onToggleSave={selectedConcert && session ? () => toggleSave(selectedConcert) : undefined}
-        distanceLabel={selectedConcert ? distanceLabelFor(userLocation, selectedConcert) : undefined}
-        directionsUrl={selectedConcert ? getDirectionsUrl(selectedConcert) : undefined}
-      />
     </ScreenScaffold>
   );
 }

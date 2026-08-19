@@ -1,8 +1,7 @@
-import { Link } from 'expo-router';
+import { router, Link } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
-import { ConcertDetailSheet } from '@/components/concert-detail-sheet';
 import { ConcertListCard } from '@/components/concert-list-card';
 import { ScreenScaffold } from '@/components/screen-scaffold';
 import { SkeletonCard } from '@/components/skeleton-card';
@@ -52,7 +51,7 @@ export default function SettingsScreen() {
   const [displayNameDraft, setDisplayNameDraft] = useState('');
   const [confirmationPendingEmail, setConfirmationPendingEmail] = useState<string | null>(null);
   const [resetEmailSent, setResetEmailSent] = useState<string | null>(null);
-  const [selectedConcert, setSelectedConcert] = useState<SavedConcert | null>(null);
+
   const theme = useTheme();
 
   // Stable identities so ConcertListCard's memo actually holds across renders
@@ -62,7 +61,7 @@ export default function SettingsScreen() {
       <ConcertListCard
         concert={item}
         width={SAVED_CARD_WIDTH}
-        onPress={setSelectedConcert}
+        onPress={(concert) => router.push({ pathname: '/concert/[id]', params: { id: concert.id } })}
         isSaved
         isSavePending={isSavePending(item.id)}
         onToggleSave={toggleSave}
@@ -393,13 +392,6 @@ export default function SettingsScreen() {
         </View>
       </ThemedView>
 
-      <ConcertDetailSheet
-        concert={selectedConcert}
-        onClose={() => setSelectedConcert(null)}
-        isSaved
-        isSavePending={selectedConcert ? isSavePending(selectedConcert.id) : undefined}
-        onToggleSave={selectedConcert ? () => toggleSave(selectedConcert) : undefined}
-      />
     </ScreenScaffold>
   );
 }

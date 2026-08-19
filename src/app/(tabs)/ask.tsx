@@ -1,7 +1,7 @@
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
-import { ConcertDetailSheet } from '@/components/concert-detail-sheet';
 import { ConcertListCard } from '@/components/concert-list-card';
 import { ScreenScaffold } from '@/components/screen-scaffold';
 import { ThemedText } from '@/components/themed-text';
@@ -15,9 +15,8 @@ import { useProfile } from '@/hooks/use-profile';
 import { useSavedConcerts } from '@/hooks/use-saved-concerts';
 import { useTheme } from '@/hooks/use-theme';
 import { useUserLocation } from '@/hooks/use-user-location';
-import { getDirectionsUrl } from '@/lib/directions';
 import { distanceLabelFor } from '@/lib/geo';
-import { CITIES, Concert } from '@/types/concert';
+import { CITIES } from '@/types/concert';
 
 const EXAMPLES = [
   'Something like Fred again.. this weekend',
@@ -36,7 +35,7 @@ export default function AskScreen() {
   const { isSaved, isSavePending, toggleSave } = useSavedConcerts(session?.user.id ?? null);
   const { coords: userLocation } = useUserLocation();
   const [draft, setDraft] = useState('');
-  const [selectedConcert, setSelectedConcert] = useState<Concert | null>(null);
+
 
   async function submit(question: string) {
     setDraft('');
@@ -132,7 +131,7 @@ export default function AskScreen() {
             <ConcertListCard
               key={concert.id}
               concert={concert}
-              onPress={() => setSelectedConcert(concert)}
+              onPress={() => router.push({ pathname: '/concert/[id]', params: { id: concert.id } })}
               isSaved={isSaved(concert.id)}
               isSavePending={isSavePending(concert.id)}
               onToggleSave={() => toggleSave(concert)}
@@ -157,15 +156,6 @@ export default function AskScreen() {
         </ThemedText>
       )}
 
-      <ConcertDetailSheet
-        concert={selectedConcert}
-        onClose={() => setSelectedConcert(null)}
-        isSaved={selectedConcert ? isSaved(selectedConcert.id) : undefined}
-        isSavePending={selectedConcert ? isSavePending(selectedConcert.id) : undefined}
-        onToggleSave={selectedConcert ? () => toggleSave(selectedConcert) : undefined}
-        distanceLabel={selectedConcert ? distanceLabelFor(userLocation, selectedConcert) : undefined}
-        directionsUrl={selectedConcert ? getDirectionsUrl(selectedConcert) : undefined}
-      />
     </ScreenScaffold>
   );
 }
