@@ -35,6 +35,9 @@ type ConcertsFilterBarProps = {
   followCount?: number;
   /** Shows matching the current filters, for the live-region announcement. */
   resultCount?: number;
+  /** Everything currently narrowing the list — drives the reset row. */
+  activeFilters?: { id: string; label: string }[];
+  onResetFilters?: () => void;
   /** The visible week's seven nights with per-night show counts, for the strip. */
   weekNights?: WeekNight[];
 };
@@ -62,6 +65,8 @@ export function ConcertsFilterBar({
   onFollowingOnlyChange,
   followCount = 0,
   resultCount,
+  activeFilters = [],
+  onResetFilters,
 }: ConcertsFilterBarProps) {
   const theme = useTheme();
   const [cityMenuOpen, setCityMenuOpen] = useState(false);
@@ -164,8 +169,20 @@ export function ConcertsFilterBar({
           <Pressable
             onPress={() => setFiltersMenuOpen((open) => !open)}
             style={({ pressed }) => pressed && styles.pressed}>
-            <ThemedView type="backgroundElement" style={styles.cityPill}>
-              <ThemedText type="smallBold" style={styles.pillLabel}>Filters ▾</ThemedText>
+            {/* Names the active category rather than always reading "Filters".
+                City and Date pills already show their own state; this one did
+                not, which is the gap that has people opening a filter menu just
+                to re-read what they picked. Selected state is carried by the
+                label text *and* the raised surface, not colour alone. */}
+            <ThemedView
+              type={category === 'All' ? 'backgroundElement' : 'backgroundSelected'}
+              style={styles.cityPill}>
+              <ThemedText
+                type="smallBold"
+                numberOfLines={1}
+                style={[styles.pillLabel, category !== 'All' && { color: theme.accentText }]}>
+                {category === 'All' ? 'Filters' : category} ▾
+              </ThemedText>
             </ThemedView>
           </Pressable>
 
@@ -222,6 +239,46 @@ export function ConcertsFilterBar({
           </Pressable>
         )}      </View>
 
+      {/* Only exists while something is actually narrowing the list, which is
+          both the researched pattern and a hard layout requirement here: a
+          fifth always-on pill measured 386pt against a 361pt budget at 393pt
+          and pushed the row off-screen. Its own row instead of a pill also
+          keeps it reachable on Pop-ups, where the strip below hides itself.
+
+          The label names what it will undo when that is one specific thing —
+          "Clear 21+" beats a bare "Reset", which says nothing about what is
+          about to change. Past one it becomes a count, since listing four
+          filters would wrap. */}
+      {activeFilters.length > 0 && onResetFilters && (
+        <View style={styles.resetRow}>
+          {/* The count shares this line rather than the reset sitting alone.
+              Communicating filter state means saying how much survived the
+              filter, not just that one is on — and a lone link floating on its
+              own row read as an orphan with nothing to anchor it. */}
+          <ThemedText type="small" themeColor="textSecondary" style={styles.resetCount}>
+            {typeof resultCount === 'number'
+              ? `${resultCount} ${resultCount === 1 ? 'show' : 'shows'}`
+              : ''}
+          </ThemedText>
+          <Pressable
+            onPress={onResetFilters}
+            accessibilityRole="button"
+            accessibilityLabel={`Clear ${activeFilters
+              .map((filter) => filter.label)
+              .join(', ')}. Back to this week, all shows.`}
+            hitSlop={10}
+            style={({ pressed }) => [styles.resetButton, pressed && styles.pressed]}>
+            <ThemedText type="small" style={{ color: theme.accentText }}>
+              {activeFilters.length === 1
+                ? activeFilters[0].id === 'week'
+                  ? 'Back to this week'
+                  : `Clear ${activeFilters[0].label}`
+                : `Clear all ${activeFilters.length}`}
+            </ThemedText>
+          </Pressable>
+        </View>
+      )}
+
       {/* The old "‹ This Week ›" row lived here. It has been replaced by
           NightDensityStrip, which does the same paging and additionally shows
           what is actually on each night. */}
@@ -276,6 +333,25 @@ const styles = StyleSheet.create({
   },
   pillWrapper: {
     zIndex: 1,
+  },
+  // Right-aligned: it is an escape hatch, not a primary action, and the left
+  // edge is where the pills that *set* filters start.
+  // paddingHorizontal so the row's ends line up with the pills above it: the
+  // bar's container is full-bleed (measured 0-393 at 393pt), so without this
+  // the reset text sat 4pt from the screen edge while the pills stopped at
+  // 385 — close enough to look like a mistake rather than a margin.
+  resetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.one,
+  },
+  resetCount: {
+    paddingHorizontal: Spacing.one,
+  },
+  resetButton: {
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.one,
   },
   cityPill: {
     alignSelf: 'flex-start',

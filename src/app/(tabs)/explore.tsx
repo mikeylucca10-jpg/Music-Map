@@ -37,6 +37,8 @@ export default function ExploreScreen() {
     canGoNextWeek,
     weekNavRelevant,
     setWeekOffset,
+    activeFilters,
+    resetFilters,
     filteredConcerts,
   } = useConcertsFilters(concerts, city);
 
@@ -122,6 +124,9 @@ export default function ExploreScreen() {
           canGoNextWeek={canGoNextWeek}
           weekNavRelevant={weekNavRelevant}
           setWeekOffset={setWeekOffset}
+          activeFilters={activeFilters}
+          onResetFilters={resetFilters}
+          resultCount={filteredConcerts.length}
         />
       </View>
 

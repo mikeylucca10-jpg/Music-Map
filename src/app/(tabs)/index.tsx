@@ -51,6 +51,8 @@ export default function HomeScreen() {
     followCount,
     nextShowAhead,
     hasAnyConcerts,
+    activeFilters,
+    resetFilters,
     filteredConcerts,
   } = useConcertsFilters(concerts, city, follows);
   const theme = useTheme();
@@ -107,6 +109,8 @@ export default function HomeScreen() {
         onFollowingOnlyChange={setFollowingOnly}
         followCount={followCount}
         resultCount={filteredConcerts.length}
+        activeFilters={activeFilters}
+        onResetFilters={resetFilters}
       />
 
       {isLoading && (

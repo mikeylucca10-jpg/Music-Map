@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import { isPointInMultiPolygon } from '@/lib/geo';
-import { dateKeyFor, formatWeekRangeLabel, getNycDateKey } from '@/lib/format-date';
+import { dateKeyFor, formatDateKeyLabel, formatWeekRangeLabel, getNycDateKey } from '@/lib/format-date';
 import { followKey } from '@/services/follows';
 import { City, Concert } from '@/types/concert';
 
@@ -251,6 +251,36 @@ export function useConcertsFilters(
     return { concert: soonest, weekOffset: Math.min(MAX_WEEKS_AHEAD, Math.max(0, weeksAhead)) };
   }, [concerts, category, selectedBorough, weekOffset]);
 
+  /**
+   * Everything currently narrowing the list, named the way the user chose it.
+   *
+   * This exists because the pills are an incomplete record of what is applied:
+   * City and Date show their own state, but the Filters pill reads "Filters"
+   * whether or not a category is set, and the week position is only legible if
+   * you happen to look at the strip. Baymard's testing found people open a
+   * filter panel purely to re-read what they had selected when the list itself
+   * does not say — this is the answer to that, and it also gives the reset
+   * control something specific to name rather than a bare "Reset".
+   *
+   * City is deliberately absent. It is a saved preference seeded from
+   * profiles.default_city, not a filter someone applied in this session, so
+   * clearing it would fight the user's own default and silently move them to
+   * another city's listings. Borough *is* here — that is a real narrowing
+   * chosen in-session, even though it is picked from inside the city menu.
+   */
+  const activeFilters = useMemo(() => {
+    const active: { id: string; label: string }[] = [];
+    if (category !== 'All') active.push({ id: 'category', label: category });
+    if (selectedBorough) active.push({ id: 'borough', label: selectedBorough.label });
+    if (dateKey) active.push({ id: 'date', label: formatDateKeyLabel(dateKey) });
+    if (followingOnly) active.push({ id: 'following', label: 'Following' });
+    // Not "a filter" in the same sense — it narrows by time rather than by a
+    // property of a show — but it is the state people most often want undone,
+    // and it is the one the request specifically named ("reset to today").
+    if (weekOffset !== 0) active.push({ id: 'week', label: 'This week' });
+    return active;
+  }, [category, selectedBorough, dateKey, followingOnly, weekOffset]);
+
   const filteredConcerts = useMemo(() => {
     // Deliberately not a dependency: a fresh Date() here would otherwise
     // need to be a memo dependency, which — being a new object identity
@@ -305,6 +335,22 @@ export function useConcertsFilters(
      * claiming there are no shows when 85 of them are loaded.
      */
     hasAnyConcerts: concerts.length > 0,
+    activeFilters,
+    /**
+     * Back to the default view: this week, every category, no borough, no
+     * night, everyone. One tap, no confirmation — nothing here is destructive
+     * or hard to redo, and a dialog guarding a filter reset is friction with
+     * no risk behind it.
+     *
+     * City is left alone on purpose; see activeFilters above for why.
+     */
+    resetFilters: () => {
+      setCategory('All');
+      setBoroughId(null);
+      setDateKey(null);
+      setWeekOffset(0);
+      setFollowingOnly(false);
+    },
     filteredConcerts,
   };
 }
