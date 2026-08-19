@@ -21,6 +21,7 @@ import { BottomTabInset, Colors, Fonts, Radius, Spacing } from '@/constants/them
 import { useApplyDefaultCity } from '@/hooks/use-apply-default-city';
 import { useAuth } from '@/hooks/use-auth';
 import { useEdmConcerts } from '@/hooks/use-edm-concerts';
+import { useFollows } from '@/hooks/use-follows';
 import { useProfile } from '@/hooks/use-profile';
 import { useSavedConcerts } from '@/hooks/use-saved-concerts';
 import { useTheme } from '@/hooks/use-theme';
@@ -62,6 +63,7 @@ export default function ConcertScreen() {
     session?.user.id ?? null,
   );
   const { coords: userLocation } = useUserLocation();
+  const { isFollowing, isFollowPending, toggleFollow } = useFollows(session?.user.id ?? null);
 
   // Prefer the live feed: it carries coordinates, which the saved copy does
   // not, and coordinates are what make directions and distance possible.
@@ -204,6 +206,31 @@ export default function ConcertScreen() {
             )}
           </View>
 
+          {/* Follow lives here, on the screen the show owns, rather than in a
+              list card: following is a considered act, not something to fire
+              past on a scroll. Artist and venue are separate because they are
+              followed for different reasons -- an act you like versus a room
+              you trust -- and the research is that a trusted room surfaces acts
+              you do not know yet, which following artists alone never will. */}
+          {session && (
+            <View style={styles.followRow}>
+              {concert.artist && (
+                <FollowChip
+                  label={concert.artist}
+                  active={isFollowing('artist', concert.artist)}
+                  pending={isFollowPending('artist', concert.artist)}
+                  onPress={() => toggleFollow('artist', concert.artist!)}
+                />
+              )}
+              <FollowChip
+                label={concert.venueName}
+                active={isFollowing('venue', concert.venueName)}
+                pending={isFollowPending('venue', concert.venueName)}
+                onPress={() => toggleFollow('venue', concert.venueName)}
+              />
+            </View>
+          )}
+
           {directionsUrl && (
             <Pressable
               onPress={() => Linking.openURL(directionsUrl)}
@@ -245,6 +272,51 @@ export default function ConcertScreen() {
         </ThemedText>
       </Pressable>
     </ThemedView>
+  );
+}
+
+/**
+ * A follow control, styled as a chip rather than a button.
+ *
+ * Filled when following, outlined when not: the state has to be readable at a
+ * glance without reading the label, because the label is a name and names do
+ * not carry state. The word changes too ("Following" vs "Follow") so the
+ * meaning does not rest on colour alone.
+ */
+function FollowChip({
+  label,
+  active,
+  pending,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  pending: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={pending}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active, disabled: pending }}
+      accessibilityLabel={active ? `Unfollow ${label}` : `Follow ${label}`}
+      style={({ pressed }) => [
+        styles.followChip,
+        {
+          backgroundColor: active ? theme.accent : theme.surfaceOverlay,
+          borderColor: active ? theme.accent : theme.border,
+        },
+        (pressed || pending) && styles.pressed,
+      ]}>
+      <ThemedText
+        type="smallBold"
+        numberOfLines={1}
+        style={{ color: active ? theme.accentInk : theme.text }}>
+        {active ? 'Following' : 'Follow'} {label}
+      </ThemedText>
+    </Pressable>
   );
 }
 
@@ -325,6 +397,14 @@ const styles = StyleSheet.create({
   // Off-scale on purpose: a single glyph optically centred in its tap area.
   heart: { fontSize: 26, lineHeight: 28, color: Colors.dark.text },
   metaRows: { gap: Spacing.one },
+  followRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  followChip: {
+    flexShrink: 1,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+  },
   addressLink: { textDecorationLine: 'underline' },
   directionsWrapper: { marginTop: Spacing.one },
   directionsButton: {
