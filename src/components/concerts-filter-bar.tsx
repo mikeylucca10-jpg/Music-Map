@@ -1,9 +1,9 @@
-import { useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { DatePickerSheet } from '@/components/date-picker-sheet';
 import { NightDensityStrip, type WeekNight } from '@/components/night-density-strip';
+import { SelectSheet, type SelectOption } from '@/components/select-sheet';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
@@ -70,29 +70,13 @@ export function ConcertsFilterBar({
   onResetFilters,
 }: ConcertsFilterBarProps) {
   const theme = useTheme();
-  // One value, not two booleans. Two independent flags let both dropdowns be
-  // open at once -- tapping City while Filters was down left them overlapping,
-  // because nothing in the old shape could express "at most one". This makes
-  // that unrepresentable rather than a rule someone has to remember at each
-  // call site.
-  const [openMenu, setOpenMenu] = useState<'city' | 'filters' | null>(null);
-  const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const cityMenuOpen = openMenu === 'city';
-  const filtersMenuOpen = openMenu === 'filters';
-  const toggleMenu = (menu: 'city' | 'filters') =>
-    setOpenMenu((current) => (current === menu ? null : menu));
 
-  // Close on the way out, so leaving for a concert and coming back does not
-  // land on a menu left hanging open. The screen stays mounted underneath a
-  // pushed route, so without this its state survives the trip.
-  useFocusEffect(
-    useCallback(
-      () => () => {
-        setOpenMenu(null);
-      },
-      [],
-    ),
-  );
+  // One value, not three booleans. Two independent flags previously let both
+  // dropdowns be open at once, because nothing in that shape could express "at
+  // most one". Now that all three selectors are sheets the Modal enforces it
+  // visually too, but the invariant belongs in the state either way.
+  const [openSheet, setOpenSheet] = useState<'city' | 'filters' | 'date' | null>(null);
+
   // "Any night" rather than today's date when nothing is picked. The pill used
   // to default to today, which openly contradicted the strip beside it — the
   // pill would read "Sun, Aug 16" while the strip showed Aug 24–30. Today's
@@ -101,188 +85,97 @@ export function ConcertsFilterBar({
   const selectedBorough = city.boroughs?.find((borough) => borough.id === selectedBoroughId);
   const cityPillLabel = selectedBorough?.label ?? city.label;
 
-  function selectCity(item: City) {
-    onCityChange(item);
-    onBoroughChange?.(null);
-    setOpenMenu(null);
+  // Cities and their boroughs flattened into one list, boroughs indented under
+  // the city they belong to. Picking "Brooklyn" therefore sets both city and
+  // borough in a single tap, and the nesting is what makes that relationship
+  // readable — a separate borough control would imply the two are independent
+  // choices, which they are not.
+  const cityOptions: SelectOption[] = cities.flatMap((item) => [
+    { id: item.id, label: item.label },
+    ...(item.boroughs ?? []).map((borough) => ({
+      id: `${item.id}:${borough.id}`,
+      label: borough.label,
+      nested: true,
+    })),
+  ]);
+  const selectedCityOptionId = selectedBorough ? `${city.id}:${selectedBorough.id}` : city.id;
+
+  function handleCitySelect(optionId: string) {
+    const [cityId, boroughId] = optionId.split(':');
+    const nextCity = cities.find((item) => item.id === cityId);
+    if (!nextCity) return;
+    onCityChange(nextCity);
+    onBoroughChange?.(boroughId ?? null);
   }
 
-  function selectBorough(item: City, boroughId: string) {
-    onCityChange(item);
-    onBoroughChange?.(boroughId);
-    setOpenMenu(null);
-  }
+  const categoryOptions: SelectOption[] = categories.map((item) => ({
+    id: item,
+    label: item,
+    // Named where they are chosen rather than in a legend somewhere else. These
+    // four are keyword guesses against the event title, not real fields, and
+    // someone picking one deserves to know it may miss things. There was never
+    // room to say so in a dropdown row; a sheet has the space.
+    detail:
+      item === 'Pop-ups' || item === 'Festivals' || item === 'Clubs' || item === 'Day Parties'
+        ? 'Matched from the event name'
+        : undefined,
+  }));
 
   return (
     <View style={styles.container}>
-      {/* Light dismiss. Apple's HIG treats tapping outside as the way to close
-          a menu — "no changes applied", no explicit Cancel needed — and without
-          it the only way out was to hit the same pill again, which is not where
-          anyone reaches. Deliberately swallows the tap rather than passing it
-          through to whatever sat underneath: the first tap means "close this",
-          and acting on the thing behind it would be an unintended selection.
-
-          Sized in viewport units rather than inset:0 because it has to cover
-          the whole screen while living inside the bar's own container. */}
-      {openMenu && (
-        <Pressable
-          onPress={() => setOpenMenu(null)}
-          accessibilityRole="button"
-          accessibilityLabel="Close menu"
-          style={styles.backdrop}
-        />
-      )}
-
       <View style={styles.pillsRow}>
-        <View style={styles.pillWrapper}>
-          <Pressable
-            onPress={() => toggleMenu('city')}
-            style={({ pressed }) => pressed && styles.pressed}>
-            <ThemedView type="backgroundElement" style={styles.cityPill}>
-              <ThemedText type="smallBold" style={styles.pillLabel} numberOfLines={1}>{cityPillLabel} ▾</ThemedText>
-            </ThemedView>
-          </Pressable>
-
-          {cityMenuOpen && (
-            <ThemedView type="backgroundElement" style={styles.cityMenu}>
-              <ScrollView showsVerticalScrollIndicator={false}>
-                {cities.map((item) => {
-                  const isActiveCity = item.id === city.id;
-                  return (
-                    <View key={item.id}>
-                      <Pressable
-                        onPress={() => selectCity(item)}
-                        style={({ pressed }) => [styles.cityMenuItem, pressed && styles.pressed]}>
-                        <ThemedText
-                          type={isActiveCity && !selectedBorough ? 'smallBold' : 'small'}
-                          themeColor={isActiveCity && !selectedBorough ? 'text' : 'textSecondary'}>
-                          {item.label}
-                        </ThemedText>
-                      </Pressable>
-                      {item.boroughs?.map((borough) => {
-                        const isSelectedBorough = isActiveCity && borough.id === selectedBoroughId;
-                        return (
-                          <Pressable
-                            key={borough.id}
-                            onPress={() => selectBorough(item, borough.id)}
-                            style={({ pressed }) => [styles.boroughMenuItem, pressed && styles.pressed]}>
-                            <ThemedText
-                              type={isSelectedBorough ? 'smallBold' : 'small'}
-                              themeColor={isSelectedBorough ? 'text' : 'textSecondary'}>
-                              {borough.label}
-                            </ThemedText>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  );
-                })}
-              </ScrollView>
-            </ThemedView>
-          )}
-        </View>
+        <FilterPill
+          label={cityPillLabel}
+          onPress={() => setOpenSheet('city')}
+          active={Boolean(selectedBorough)}
+          opens
+          accessibilityLabel={`Where: ${cityPillLabel}. Change city or borough`}
+        />
 
         {onDateChange && (
-          <View style={styles.pillWrapper}>
-            <Pressable
-              onPress={() => {
-                // The date sheet is a third menu in every sense except that it
-                // renders as a modal, so opening it dismisses the other two.
-                setOpenMenu(null);
-                setDatePickerOpen(true);
-              }}
-              style={({ pressed }) => pressed && styles.pressed}>
-              <ThemedView type="backgroundElement" style={styles.cityPill}>
-                <ThemedText type="smallBold" style={styles.pillLabel} numberOfLines={1}>{selectedDateLabel} ▾</ThemedText>
-              </ThemedView>
-            </Pressable>
-
-            <DatePickerSheet
-              visible={datePickerOpen}
-              timeZone={city.timezone}
-              selectedDateKey={selectedDateKey}
-              onApply={onDateChange}
-              onClose={() => setDatePickerOpen(false)}
-              onSelectThisWeek={setWeekOffset ? () => setWeekOffset(0) : undefined}
-              onSelectNextWeek={onNextWeek}
-              weekLabel={weekLabel}
-            />
-          </View>
+          <FilterPill
+            label={selectedDateLabel}
+            onPress={() => setOpenSheet('date')}
+            active={Boolean(selectedDateKey)}
+            opens
+            accessibilityLabel={`Date: ${selectedDateLabel}. Change date`}
+          />
         )}
 
-        <View style={styles.pillWrapper}>
-          <Pressable
-            onPress={() => toggleMenu('filters')}
-            style={({ pressed }) => pressed && styles.pressed}>
-            {/* Names the active category rather than always reading "Filters".
-                City and Date pills already show their own state; this one did
-                not, which is the gap that has people opening a filter menu just
-                to re-read what they picked. Selected state is carried by the
-                label text *and* the raised surface, not colour alone. */}
-            <ThemedView
-              type={category === 'All' ? 'backgroundElement' : 'backgroundSelected'}
-              style={styles.cityPill}>
-              <ThemedText
-                type="smallBold"
-                numberOfLines={1}
-                style={[styles.pillLabel, category !== 'All' && { color: theme.accentText }]}>
-                {category === 'All' ? 'Filters' : category} ▾
-              </ThemedText>
-            </ThemedView>
-          </Pressable>
+        {/* Names the active category rather than always reading "Filters". The
+            City and Date pills already show their own state; this one did not,
+            which is the gap that has people opening a menu just to re-read what
+            they picked. */}
+        <FilterPill
+          label={category === 'All' ? 'Filters' : category}
+          onPress={() => setOpenSheet('filters')}
+          active={category !== 'All'}
+          opens
+          accessibilityLabel={
+            category === 'All' ? 'Filters. None applied' : `Filter: ${category}. Change filter`
+          }
+        />
 
-          {filtersMenuOpen && (
-            <ThemedView type="backgroundElement" style={styles.filtersMenu}>
-              <ScrollView showsVerticalScrollIndicator={false}>
-                {categories.map((item) => {
-                  const selected = item === category;
-                  return (
-                    <Pressable
-                      key={item}
-                      onPress={() => {
-                        onCategoryChange(item);
-                        setOpenMenu(null);
-                      }}
-                      style={({ pressed }) => [styles.cityMenuItem, pressed && styles.pressed]}>
-                      <ThemedText
-                        type={selected ? 'smallBold' : 'small'}
-                        themeColor={selected ? 'text' : 'textSecondary'}>
-                        {item}
-                      </ThemedText>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            </ThemedView>
-          )}
-        </View>
         {/* Rendered only once something is followed. A control that can only
             ever return an empty list is worse than no control, and hiding it
             until it works also keeps the row from growing for people who have
             not followed anything yet. Deliberately a visible pill rather than
-            an item inside the Filters dropdown -- menus hide options, and this
-            is the one filter that makes the list personal. */}
+            an item inside the Filters sheet — a sheet hides its options until
+            opened, and this is the one filter that makes the list personal. */}
         {followCount > 0 && onFollowingOnlyChange && (
-          <Pressable
+          <FilterPill
+            label={followingOnly ? '✓ Following' : 'Following'}
             onPress={() => onFollowingOnlyChange(!followingOnly)}
-            accessibilityRole="button"
-            accessibilityState={{ selected: followingOnly }}
+            active={followingOnly}
+            selected={followingOnly}
             accessibilityLabel={
               followingOnly
                 ? `Showing only shows you follow${typeof resultCount === 'number' ? `, ${resultCount} shows` : ''}. Tap to show all.`
                 : `Show only shows from the ${followCount} artists and venues you follow`
             }
-            style={({ pressed }) => pressed && styles.pressed}>
-            <ThemedView type={followingOnly ? 'backgroundSelected' : 'backgroundElement'} style={styles.cityPill}>
-              <ThemedText
-                type="smallBold"
-                numberOfLines={1}
-                style={[styles.pillLabel, followingOnly ? { color: theme.accentText } : null]}>
-                {followingOnly ? '✓ Following' : 'Following'}
-              </ThemedText>
-            </ThemedView>
-          </Pressable>
-        )}      </View>
+          />
+        )}
+      </View>
 
       {/* Only exists while something is actually narrowing the list, which is
           both the researched pattern and a hard layout requirement here: a
@@ -348,31 +241,104 @@ export function ConcertsFilterBar({
           canGoNextWeek={canGoNextWeek}
         />
       )}
+
+      {/* All three selectors are sheets now, so they share one dismissal model,
+          one animation, and one place on screen — reachable by a thumb rather
+          than pinned to the top edge. They also stop fighting the stacking
+          context: React Native Web makes every View its own, and the old
+          dropdowns needed two separate z-index fixes plus a hand-rolled
+          full-screen backdrop just to be closable. A Modal has none of that. */}
+      <SelectSheet
+        visible={openSheet === 'city'}
+        title="Where"
+        options={cityOptions}
+        selectedId={selectedCityOptionId}
+        onSelect={handleCitySelect}
+        onClose={() => setOpenSheet(null)}
+      />
+
+      <SelectSheet
+        visible={openSheet === 'filters'}
+        title="Show me"
+        options={categoryOptions}
+        selectedId={category}
+        onSelect={(id) => onCategoryChange(id as Category)}
+        onClose={() => setOpenSheet(null)}
+      />
+
+      {onDateChange && (
+        <DatePickerSheet
+          visible={openSheet === 'date'}
+          timeZone={city.timezone}
+          selectedDateKey={selectedDateKey}
+          onApply={onDateChange}
+          onClose={() => setOpenSheet(null)}
+          onSelectThisWeek={setWeekOffset ? () => setWeekOffset(0) : undefined}
+          onSelectNextWeek={onNextWeek}
+          weekLabel={weekLabel}
+        />
+      )}
     </View>
   );
 }
 
+/**
+ * One pill, so the four in the row cannot drift apart.
+ *
+ * They were four hand-rolled copies of the same markup and had already
+ * diverged: some carried numberOfLines and some did not, and only one had an
+ * accessible name. `active` raises the surface and tints the label together, so
+ * an applied filter never signals itself with colour alone.
+ */
+function FilterPill({
+  label,
+  onPress,
+  active,
+  selected,
+  opens,
+  accessibilityLabel,
+}: {
+  label: string;
+  onPress: () => void;
+  active: boolean;
+  selected?: boolean;
+  /** Appends a chevron. Marks the pills that open a sheet, so the Following
+   *  toggle -- which just flips in place -- is visibly a different kind of
+   *  control rather than looking like a menu that never opens. */
+  opens?: boolean;
+  accessibilityLabel: string;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={selected === undefined ? undefined : { selected }}
+      style={({ pressed }) => pressed && styles.pressed}>
+      <ThemedView type={active ? 'backgroundSelected' : 'backgroundElement'} style={styles.pill}>
+        <ThemedText
+          type="smallBold"
+          numberOfLines={1}
+          style={[styles.pillLabel, active && { color: theme.accentText }]}>
+          {opens ? `${label} ▾` : label}
+        </ThemedText>
+      </ThemedView>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  // No z-index any more. The dropdowns needed the whole bar raised above the
+  // rest of the screen so their absolutely-positioned menus were not painted
+  // over by later siblings; a sheet renders in a Modal, above everything, by
+  // construction. Two prior bug fixes lived in this style block and are gone
+  // with the pattern that required them.
   container: {
     gap: Spacing.two,
-    // React Native Web stamps every plain View with its own z-index:0
-    // stacking context by default, which traps cityMenu's zIndex below —
-    // without this, later siblings on the host screen (e.g. list.tsx's
-    // error/empty message card) paint over the open city dropdown.
-    zIndex: 100,
   },
   pressed: {
     opacity: 0.7,
-  },
-  disabled: {
-    opacity: 0.3,
-  },
-  weekNavRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.three,
-    paddingVertical: Spacing.one,
   },
   pillsRow: {
     flexDirection: 'row',
@@ -380,29 +346,17 @@ const styles = StyleSheet.create({
     // Everything fits one line: horizontally scrolling filter rows hide the
     // options past the edge, and lateral movement inside a vertical page is a
     // documented discoverability problem. Four compact pills fit 393pt.
-    // Wins the stacking tie against the weekNavRow sibling below it (both
-    // default to z-index:0 otherwise, and DOM order would let weekNavRow
-    // paint over an open dropdown's bottom edge). Also has to out-rank the
-    // backdrop, so the pills and the open menu stay above it while everything
-    // else on the screen sits beneath.
-    zIndex: 2,
+    flexWrap: 'nowrap',
   },
-  // Between the pills (2) and everything else (0): the menus stay tappable,
-  // the list, strip and reset row below do not. Extends far past the bar in
-  // every direction so a tap anywhere on the screen counts as "outside".
-  backdrop: {
-    position: 'absolute',
-    top: -400,
-    bottom: -1200,
-    left: -400,
-    right: -400,
-    zIndex: 1,
+  pill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: Spacing.two + 2,
+    paddingVertical: Spacing.two,
+    borderRadius: Radius.pill,
   },
-  pillWrapper: {
-    zIndex: 1,
-  },
-  // Right-aligned: it is an escape hatch, not a primary action, and the left
-  // edge is where the pills that *set* filters start.
+  // Small label so four pills fit; vertical padding untouched so the tap
+  // target stays full height even though the pill is narrower.
+  pillLabel: { fontSize: Fonts.size.xs },
   // paddingHorizontal so the row's ends line up with the pills above it: the
   // bar's container is full-bleed (measured 0-393 at 393pt), so without this
   // the reset text sat 4pt from the screen edge while the pills stopped at
@@ -417,55 +371,11 @@ const styles = StyleSheet.create({
   // is absolutely positioned *over* the Leaflet map, where light tiles sit
   // directly behind it — every other control there is already a filled pill for
   // that reason, and the reset row was the one thing relying on the dark app
-  // background it does not have on that screen. Same treatment as the pills
-  // above it, so it reads on either ground rather than only on Home's.
+  // background it does not have on that screen.
   resetChip: {
     paddingHorizontal: Spacing.two + 2,
     paddingVertical: Spacing.one + 2,
     borderRadius: Radius.pill,
   },
   resetChipLabel: { fontSize: Fonts.size.xs },
-  cityPill: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: Spacing.two + 2,
-    paddingVertical: Spacing.two,
-    borderRadius: Radius.pill,
-  },
-  // Small label so four pills fit; vertical padding untouched so the tap
-  // target stays full height even though the pill is narrower.
-  pillLabel: { fontSize: Fonts.size.xs },
-  cityMenu: {
-    position: 'absolute',
-    top: 44,
-    left: 0,
-    borderRadius: Radius.card,
-    paddingVertical: Spacing.one,
-    minWidth: 190,
-    maxHeight: 340,
-    zIndex: 10,
-  },
-  cityMenuItem: {
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-  },
-  // Nested under a city entry (e.g. New York -> Manhattan, Brooklyn, ...)
-  // rather than a separate chip row spread across the screen.
-  boroughMenuItem: {
-    paddingLeft: Spacing.five,
-    paddingRight: Spacing.three,
-    paddingVertical: Spacing.one + 2,
-  },
-  // Same look as cityMenu, but right-aligned — this is the rightmost pill,
-  // so opening from its left edge (like cityMenu does) would push the menu
-  // off-screen on a narrow phone.
-  filtersMenu: {
-    position: 'absolute',
-    top: 44,
-    right: 0,
-    borderRadius: Radius.card,
-    paddingVertical: Spacing.one,
-    minWidth: 160,
-    maxHeight: 340,
-    zIndex: 10,
-  },
 });

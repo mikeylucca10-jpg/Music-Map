@@ -89,7 +89,7 @@ export default function ConcertScreen() {
     // A deep link or a refresh leaves no history to pop, which would strand
     // someone on a back button that does nothing.
     if (router.canGoBack()) router.back();
-    else router.replace("/(tabs)/index");
+    else router.replace('/');
   }
 
   if (isLoading && !concert) {
