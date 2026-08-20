@@ -1,6 +1,6 @@
 import { router, Link } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 
 import { ConcertListCard } from '@/components/concert-list-card';
 import { ScreenScaffold } from '@/components/screen-scaffold';
@@ -11,6 +11,7 @@ import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useProfile } from '@/hooks/use-profile';
 import { useFollows } from '@/hooks/use-follows';
+import { useNotificationPrefs } from '@/hooks/use-notification-prefs';
 import { useSavedConcerts } from '@/hooks/use-saved-concerts';
 import { useTheme } from '@/hooks/use-theme';
 import { CITIES, SavedConcert } from '@/types/concert';
@@ -58,6 +59,7 @@ export default function SettingsScreen() {
   const [resetEmailSent, setResetEmailSent] = useState<string | null>(null);
 
   const { follows, isFollowing, isFollowPending, toggleFollow } = useFollows(userId);
+  const { prefs, setPref } = useNotificationPrefs(userId);
   const theme = useTheme();
 
   // Stable identities so ConcertListCard's memo actually holds across renders
@@ -259,6 +261,42 @@ export default function SettingsScreen() {
                   </Pressable>
                 </ThemedView>
               ))}
+            </View>
+          </ThemedView>
+        )}
+
+        {/* Only shown once something is followed. Alert settings for a person
+            who follows nothing are settings for notifications that could never
+            fire — the same reasoning that hides the Following filter. */}
+        {session && follows.length > 0 && (
+          <ThemedView style={styles.savedSection}>
+            <ThemedText type="eyebrow" themeColor="textSecondary">
+              Alerts
+            </ThemedText>
+            {/* Grouped by topic, not by delivery mechanism. "Tell me about new
+                shows" is a decision someone can make; "enable push" is not.
+                Being able to switch off one kind is what stops people switching
+                off every kind, which is the single biggest lever on whether
+                notifications survive past the first month. */}
+            <View style={styles.followList}>
+              <AlertToggle
+                label="New shows"
+                detail="When something you follow is announced."
+                value={prefs.justAnnounced}
+                onChange={(value) => setPref('justAnnounced', value)}
+              />
+              <AlertToggle
+                label="Doors tomorrow"
+                detail="A reminder the day before a show you saved."
+                value={prefs.doorsTomorrow}
+                onChange={(value) => setPref('doorsTomorrow', value)}
+              />
+              <AlertToggle
+                label="Weekly roundup"
+                detail="What's on this week in your city."
+                value={prefs.weeklyDigest}
+                onChange={(value) => setPref('weeklyDigest', value)}
+              />
             </View>
           </ThemedView>
         )}
@@ -614,3 +652,48 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+
+/**
+ * One alert setting: label, one line of detail, and a switch.
+ *
+ * The label sits outside the control rather than inside it, which is both the
+ * accessibility convention and what makes the row scannable — a column of bare
+ * switches forces you to read every line to find the one you came for.
+ *
+ * The detail line says what the alert *is*, not what the switch does. "When
+ * something you follow is announced" tells you whether you want it; "Enable
+ * new show notifications" only restates the label.
+ */
+function AlertToggle({
+  label,
+  detail,
+  value,
+  onChange,
+}: {
+  label: string;
+  detail: string;
+  value: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  const theme = useTheme();
+  return (
+    <ThemedView type="backgroundElement" style={styles.followRow}>
+      <View style={styles.followLabel}>
+        <ThemedText type="default">{label}</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          {detail}
+        </ThemedText>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        accessibilityLabel={label}
+        // The platform switch rather than a custom control: it already carries
+        // the right role, the right gesture, and the right size on both
+        // platforms, and people already know what it means.
+        trackColor={{ false: theme.border, true: theme.accent }}
+        thumbColor={theme.accentInk}
+      />
+    </ThemedView>
+  );
+}
