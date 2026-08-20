@@ -26,6 +26,8 @@ export default function ExploreScreen() {
     category,
     setCategory,
     categories,
+    boroughsByCount,
+    boroughCounts,
     selectedBoroughId,
     setBoroughId,
     selectedDateKey,
@@ -114,6 +116,8 @@ export default function ExploreScreen() {
           onCityChange={setCity}
           cities={CITIES}
           selectedBoroughId={selectedBoroughId}
+          boroughsByCount={boroughsByCount}
+          boroughCounts={boroughCounts}
           onBoroughChange={setBoroughId}
           selectedDateKey={selectedDateKey}
           onDateChange={setDateKey}

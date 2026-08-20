@@ -34,6 +34,8 @@ export default function HomeScreen() {
     category,
     setCategory,
     categories,
+    boroughsByCount,
+    boroughCounts,
     selectedBoroughId,
     setBoroughId,
     selectedDateKey,
@@ -94,6 +96,8 @@ export default function HomeScreen() {
         onCityChange={setCity}
         cities={CITIES}
         selectedBoroughId={selectedBoroughId}
+        boroughsByCount={boroughsByCount}
+        boroughCounts={boroughCounts}
         onBoroughChange={setBoroughId}
         selectedDateKey={selectedDateKey}
         onDateChange={setDateKey}

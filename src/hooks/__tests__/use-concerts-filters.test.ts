@@ -100,17 +100,19 @@ describe('isThisWeekend', () => {
 
 describe('isWithinActiveWindow', () => {
   const laterThisMonth = makeConcert({ startDateTime: localIso(2026, 7, 25) });
-  const nextMonth = makeConcert({ startDateTime: localIso(2026, 8, 5) });
 
   it('scopes normal categories to the current week', () => {
     expect(isWithinActiveWindow(makeConcert(), 'All', 0, THURSDAY)).toBe(true);
     expect(isWithinActiveWindow(laterThisMonth, 'All', 0, THURSDAY)).toBe(false);
   });
 
-  it('scopes Pop-ups to the whole calendar month instead', () => {
-    // Pop-ups are sparse enough that a one-week window usually comes up empty.
-    expect(isWithinActiveWindow(laterThisMonth, 'Pop-ups', 0, THURSDAY)).toBe(true);
-    expect(isWithinActiveWindow(nextMonth, 'Pop-ups', 0, THURSDAY)).toBe(false);
+  it('scopes every category to the week, with no exceptions', () => {
+    // Pop-ups used to get a whole calendar month here because a week was
+    // usually empty for it. It was empty because the keyword matched nothing at
+    // all; the category is gone and the exception went with it.
+    for (const category of ['All', 'This Weekend', 'Day Parties', 'Late Night', '21+', 'Free'] as const) {
+      expect(isWithinActiveWindow(laterThisMonth, category, 0, THURSDAY)).toBe(false);
+    }
   });
 });
 
@@ -126,21 +128,45 @@ describe('matchesCategory', () => {
     expect(matchesCategory(makeConcert(), 'All', THURSDAY, 0)).toBe(true);
   });
 
-  // These four are documented best-effort keyword matches, not real fields —
-  // pinned here so a regex tweak has to be deliberate.
-  it('keyword-matches against the concert and venue name', () => {
-    expect(matchesCategory(makeConcert({ name: 'Summer Fest 2026' }), 'Festivals', THURSDAY, 0)).toBe(
-      true,
-    );
-    expect(matchesCategory(makeConcert({ name: 'Rooftop Pop-Up' }), 'Pop-ups', THURSDAY, 0)).toBe(
-      true,
-    );
-    expect(matchesCategory(makeConcert({ name: 'Sunday Day Party' }), 'Day Parties', THURSDAY, 0)).toBe(
-      true,
-    );
-    expect(matchesCategory(makeConcert({ venueName: 'Club Space' }), 'Clubs', THURSDAY, 0)).toBe(true);
-    expect(matchesCategory(makeConcert({ name: 'Regular Show' }), 'Festivals', THURSDAY, 0)).toBe(
-      false,
-    );
+  // Day Parties and Late Night read the clock rather than the title. The
+  // keyword versions of these matched 0 of 50 shows against the live feed,
+  // because nobody writes "day party" in an event name — but plenty of shows
+  // start at 3pm.
+  it('classifies by the hour a show starts, in the venue timezone', () => {
+    const nycAfternoon = makeConcert({
+      // 19:00Z is 3pm in New York.
+      startDateTime: '2026-08-20T19:00:00Z',
+      timezone: 'America/New_York',
+    });
+    const nycLate = makeConcert({
+      // 03:00Z is 11pm the previous evening in New York.
+      startDateTime: '2026-08-21T03:00:00Z',
+      timezone: 'America/New_York',
+    });
+    const nycEvening = makeConcert({
+      startDateTime: '2026-08-21T00:00:00Z',
+      timezone: 'America/New_York',
+    });
+
+    expect(matchesCategory(nycAfternoon, 'Day Parties', THURSDAY, 0)).toBe(true);
+    expect(matchesCategory(nycLate, 'Day Parties', THURSDAY, 0)).toBe(false);
+    expect(matchesCategory(nycLate, 'Late Night', THURSDAY, 0)).toBe(true);
+    expect(matchesCategory(nycEvening, 'Late Night', THURSDAY, 0)).toBe(false);
+    expect(matchesCategory(nycEvening, 'Day Parties', THURSDAY, 0)).toBe(false);
+  });
+
+  it('reads the hour in the venue zone rather than the viewer zone', () => {
+    // The same instant is a 3pm day party in Los Angeles and a 6pm evening show
+    // in New York. Using Date#getHours would classify it by whoever is looking.
+    const laAfternoon = makeConcert({
+      startDateTime: '2026-08-20T22:00:00Z',
+      timezone: 'America/Los_Angeles',
+    });
+    const nycEvening = makeConcert({
+      startDateTime: '2026-08-20T22:00:00Z',
+      timezone: 'America/New_York',
+    });
+    expect(matchesCategory(laAfternoon, 'Day Parties', THURSDAY, 0)).toBe(true);
+    expect(matchesCategory(nycEvening, 'Day Parties', THURSDAY, 0)).toBe(false);
   });
 });

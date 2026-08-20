@@ -6,31 +6,71 @@ import {
   formatDateKeyLabel,
   formatWeekRangeLabel,
   getConcertDateKey,
+  DEFAULT_TIME_ZONE,
 } from '@/lib/format-date';
 import { followKey } from '@/services/follows';
 import { City, Concert } from '@/types/concert';
 
+/**
+ * Every category answers from a real field or a real clock. None of them guess.
+ *
+ * Pop-ups, Festivals, Clubs and Day Parties used to sit here as keyword matches
+ * against the event title, and measuring them against the live NYC feed showed
+ * how badly that worked: Pop-ups matched 0 of 50 shows, Festivals 0, Day
+ * Parties 0. Clubs matched 9, but only because the *venue* was called
+ * "Night Club 101" or "Blue Note Jazz Club" — it counted a jazz club and missed
+ * Pacha, one of the best-known nightclubs in the city. A filter that always
+ * returns nothing is worse than no filter, and one that is wrong in both
+ * directions is worse still.
+ *
+ * Day Parties survives because it turned out to be a real question asked the
+ * wrong way. Nobody writes "day party" in a title, but a show starting at 3pm
+ * is one — 7 of 50 shows start before 5pm, including the Galantis rooftop
+ * dates. Late Night replaces the rest for the same reason: 10 of 50 start at
+ * 10pm or later, and "what is on after the bars" is the question an electronic
+ * listings app is actually for.
+ */
 export const CATEGORIES = [
   'All',
   'This Weekend',
+  'Day Parties',
+  'Late Night',
   '21+',
   'Free',
-  'Pop-ups',
-  'Festivals',
-  'Clubs',
-  'Day Parties',
 ] as const;
 
 export type Category = (typeof CATEGORIES)[number];
 
-// These four are best-effort keyword matches, not a real Ticketmaster field —
-// some events will be miscategorized or unmatched.
-const KEYWORD_MATCHERS: Partial<Record<Category, RegExp>> = {
-  'Pop-ups': /pop[\s-]?up/i,
-  Festivals: /festival|\bfest\b/i,
-  Clubs: /\bclub\b/i,
-  'Day Parties': /day[\s-]?part(y|ies)/i,
-};
+/**
+ * A day party has finished before most shows have started. 5pm is the cut
+ * because the feed's own distribution splits there — a cluster at 12pm–3pm,
+ * then nothing until the 5pm–8pm doors bunching.
+ */
+const DAY_PARTY_ENDS_BEFORE_HOUR = 17;
+
+/** Late night starts at 10pm — after which the listing is a club night, not a gig. */
+const LATE_NIGHT_STARTS_AT_HOUR = 22;
+
+/**
+ * The hour a show starts, on the venue's own clock.
+ *
+ * Read via Intl rather than Date#getHours, which would answer in the viewer's
+ * timezone: browsing Los Angeles from New York would file a 3pm LA day party as
+ * a 6pm evening show and drop it out of the filter it belongs in.
+ */
+function venueStartHour(concert: Concert): number | null {
+  try {
+    const hour = new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      hour12: false,
+      timeZone: concert.timezone ?? DEFAULT_TIME_ZONE,
+    }).format(new Date(concert.startDateTime));
+    const parsed = Number(hour);
+    return Number.isFinite(parsed) ? parsed % 24 : null;
+  } catch {
+    return null;
+  }
+}
 
 const MAX_WEEKS_AHEAD = 8;
 
@@ -71,12 +111,6 @@ export function getWeekWindow(weekOffset: number, now: Date) {
   return { weekStart, weekEnd };
 }
 
-function getMonthWindow(now: Date) {
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-  return { monthStart, monthEnd };
-}
-
 export function isThisWeekend(startDateTime: string, now: Date, weekOffset: number) {
   const date = new Date(startDateTime);
   const day = now.getDay();
@@ -108,17 +142,27 @@ export function matchesCategory(
       return concert.is21Plus === true;
     case 'Free':
       return concert.isFree === true;
-    default: {
-      const matcher = KEYWORD_MATCHERS[category];
-      return matcher ? matcher.test(`${concert.name} ${concert.venueName}`) : false;
+    case 'Day Parties': {
+      const hour = venueStartHour(concert);
+      return hour !== null && hour < DAY_PARTY_ENDS_BEFORE_HOUR;
+    }
+    case 'Late Night': {
+      const hour = venueStartHour(concert);
+      // The pre-5am arm catches a 1am set, which belongs to the night before in
+      // every sense except the calendar's.
+      return hour !== null && (hour >= LATE_NIGHT_STARTS_AT_HOUR || hour < 5);
     }
   }
 }
 
-// Everything defaults to showing only the current week (paged via the week
-// navigator) so opening the app doesn't dump every upcoming show at once —
-// except Pop-ups, which gets a full month instead of a week since pop-ups
-// are sparser and a week window would often come up empty.
+// Everything shows only the current week by default (paged via the strip), so
+// opening the app doesn't dump every upcoming show at once.
+//
+// Pop-ups used to get a whole month here instead of a week, because it was so
+// sparse a week was usually empty. It was sparse because it matched nothing at
+// all, and with that category gone the exception goes with it — every category
+// is now week-scoped, which is one fewer rule and one fewer thing for the week
+// navigator to special-case.
 export function isWithinActiveWindow(
   concert: Concert,
   category: Category,
@@ -126,10 +170,6 @@ export function isWithinActiveWindow(
   now: Date,
 ) {
   const date = new Date(concert.startDateTime);
-  if (category === 'Pop-ups') {
-    const { monthStart, monthEnd } = getMonthWindow(now);
-    return date >= monthStart && date <= monthEnd;
-  }
   const { weekStart, weekEnd } = getWeekWindow(weekOffset, now);
   return date >= weekStart && date <= weekEnd;
 }
@@ -176,6 +216,41 @@ export function useConcertsFilters(
   );
 
   const selectedBorough = city.boroughs?.find((borough) => borough.id === boroughId) ?? null;
+
+  /**
+   * How many upcoming shows sit in each borough, busiest first.
+   *
+   * Ordering was previously the dataset's own — Manhattan, Brooklyn, Queens,
+   * Bronx, Staten Island — which is alphabetical-ish by borough code and says
+   * nothing about where anything is on. Sorting by real counts puts the two
+   * boroughs that carry the scene at the top and lets the quiet ones sink on
+   * their own, without hard-coding an opinion that goes stale.
+   *
+   * Counts are of everything loaded rather than the visible week, so a borough
+   * does not read as empty because of a filter set somewhere else on the bar.
+   * Empty boroughs are kept rather than hidden: "Queens, 0 shows" is a real
+   * answer, and silently dropping a borough would look like a missing feature.
+   */
+  const boroughCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const borough of city.boroughs ?? []) {
+      counts.set(
+        borough.id,
+        concerts.filter((concert) => isWithinBorough(concert, borough)).length,
+      );
+    }
+    return counts;
+  }, [concerts, city.boroughs]);
+
+  const boroughsByCount = useMemo(
+    () =>
+      [...(city.boroughs ?? [])].sort(
+        (a, b) =>
+          (boroughCounts.get(b.id) ?? 0) - (boroughCounts.get(a.id) ?? 0) ||
+          a.label.localeCompare(b.label),
+      ),
+    [city.boroughs, boroughCounts],
+  );
 
   // Computed fresh each render (cheap — a handful of Date operations, not
   // worth memoizing) so the week label/boundaries never go stale the way a
@@ -320,6 +395,8 @@ export function useConcertsFilters(
     setCategory,
     categories: CATEGORIES,
     boroughs: city.boroughs,
+    boroughsByCount,
+    boroughCounts,
     selectedBoroughId: boroughId,
     setBoroughId,
     selectedDateKey: dateKey,
@@ -341,7 +418,7 @@ export function useConcertsFilters(
     // actually being filtered. Unlike the old arrow row this stays visible once
     // a date is picked: the strip is how that date was picked, and how it gets
     // changed or cleared.
-    weekNavRelevant: category !== 'Pop-ups',
+    weekNavRelevant: true,
     weekNights,
     followingOnly,
     setFollowingOnly,

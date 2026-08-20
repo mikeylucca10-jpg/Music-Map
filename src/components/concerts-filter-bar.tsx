@@ -39,6 +39,9 @@ type ConcertsFilterBarProps = {
   /** Everything currently narrowing the list — drives the reset row. */
   activeFilters?: { id: string; label: string }[];
   onResetFilters?: () => void;
+  /** Boroughs ordered busiest-first, with their counts — see useConcertsFilters. */
+  boroughsByCount?: City['boroughs'];
+  boroughCounts?: Map<string, number>;
   /** The visible week's seven nights with per-night show counts, for the strip. */
   weekNights?: WeekNight[];
 };
@@ -68,6 +71,8 @@ export function ConcertsFilterBar({
   resultCount,
   activeFilters = [],
   onResetFilters,
+  boroughsByCount,
+  boroughCounts,
 }: ConcertsFilterBarProps) {
   const theme = useTheme();
 
@@ -95,10 +100,18 @@ export function ConcertsFilterBar({
     label: item.label,
     detail: item.boroughs?.length ? `${item.boroughs.length} areas` : undefined,
     selfLabel: item.boroughs?.length ? `All of ${item.label}` : undefined,
-    children: item.boroughs?.map((borough) => ({
-      id: `${item.id}:${borough.id}`,
-      label: borough.label,
-    })),
+    children: (item.id === city.id ? (boroughsByCount ?? item.boroughs) : item.boroughs)?.map(
+      (borough) => ({
+        id: `${item.id}:${borough.id}`,
+        label: borough.label,
+        // The count is why the order is what it is. Without it the sort looks
+        // arbitrary, and a borough with nothing on reads as broken rather than
+        // quiet.
+        detail: boroughCounts?.has(borough.id)
+          ? `${boroughCounts.get(borough.id)} ${boroughCounts.get(borough.id) === 1 ? 'show' : 'shows'}`
+          : undefined,
+      }),
+    ),
   }));
   const selectedCityOptionId = selectedBorough ? `${city.id}:${selectedBorough.id}` : city.id;
 
@@ -110,18 +123,10 @@ export function ConcertsFilterBar({
     onBoroughChange?.(boroughId ?? null);
   }
 
-  const categoryOptions: SelectOption[] = categories.map((item) => ({
-    id: item,
-    label: item,
-    // Named where they are chosen rather than in a legend somewhere else. These
-    // four are keyword guesses against the event title, not real fields, and
-    // someone picking one deserves to know it may miss things. There was never
-    // room to say so in a dropdown row; a sheet has the space.
-    detail:
-      item === 'Pop-ups' || item === 'Festivals' || item === 'Clubs' || item === 'Day Parties'
-        ? 'Guessed from the title, may miss shows'
-        : undefined,
-  }));
+  // No caption on any of these any more. Every category now answers from a
+  // real field or a real clock, so there is nothing to warn about -- the four
+  // that needed a disclaimer were the four that did not work.
+  const categoryOptions: SelectOption[] = categories.map((item) => ({ id: item, label: item }));
 
   return (
     <View style={styles.container}>

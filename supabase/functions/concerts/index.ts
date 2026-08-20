@@ -27,14 +27,26 @@ const DISCOVERY_EVENTS_URL = 'https://app.ticketmaster.com/discovery/v2/events.j
  *
  * Keep in sync when a city is added to CITIES.
  */
-const ALLOWED_CITIES: Record<string, { city: string; stateCode: string; countryCode: string }> = {
-  nyc: { city: 'New York', stateCode: 'NY', countryCode: 'US' },
-  la: { city: 'Los Angeles', stateCode: 'CA', countryCode: 'US' },
-  miami: { city: 'Miami', stateCode: 'FL', countryCode: 'US' },
-  chicago: { city: 'Chicago', stateCode: 'IL', countryCode: 'US' },
-  sf: { city: 'San Francisco', stateCode: 'CA', countryCode: 'US' },
-  vegas: { city: 'Las Vegas', stateCode: 'NV', countryCode: 'US' },
-};
+const ALLOWED_CITIES: Record<string, { cities: string[]; stateCode: string; countryCode: string }> =
+  {
+    // Ticketmaster files venues under the *municipal* city name, and in New York
+    // that is the borough, not "New York". Querying city=New York alone returned
+    // only Manhattan: all 50 kept shows landed there and Brooklyn, Queens, the
+    // Bronx and Staten Island were empty, which made the borough filter four
+    // options that could never match anything. It also silently excluded the
+    // rooms that matter most for this app -- Brooklyn Steel, Elsewhere, Avant
+    // Gardner, House of Yes are all filed under Brooklyn.
+    nyc: {
+      cities: ['New York', 'Brooklyn', 'Queens', 'Bronx', 'Staten Island'],
+      stateCode: 'NY',
+      countryCode: 'US',
+    },
+    la: { cities: ['Los Angeles'], stateCode: 'CA', countryCode: 'US' },
+    miami: { cities: ['Miami', 'Miami Beach'], stateCode: 'FL', countryCode: 'US' },
+    chicago: { cities: ['Chicago'], stateCode: 'IL', countryCode: 'US' },
+    sf: { cities: ['San Francisco', 'Oakland'], stateCode: 'CA', countryCode: 'US' },
+    vegas: { cities: ['Las Vegas'], stateCode: 'NV', countryCode: 'US' },
+  };
 
 /**
  * How long a city's results are reused before hitting Ticketmaster again.
@@ -95,14 +107,21 @@ Deno.serve(async (req) => {
 
   const params = new URLSearchParams({
     apikey: apiKey,
-    city: city.city,
     stateCode: city.stateCode,
     countryCode: city.countryCode,
     classificationName: 'Dance/Electronic',
     startDateTime: `${new Date().toISOString().split('.')[0]}Z`,
     sort: 'date,asc',
-    size: '100',
+    // Raised from 100 alongside the multi-city query: one metro now spans
+    // several municipal names, so the old page size would have started
+    // truncating the very listings this change exists to include. 199 is the
+    // Discovery API's per-page ceiling.
+    size: '199',
   });
+  // Repeated rather than comma-joined — Discovery treats multiple `city`
+  // params as OR, while a comma is read as part of a single city name and
+  // matches nothing.
+  for (const name of city.cities) params.append('city', name);
 
   let upstream: Response;
   try {
