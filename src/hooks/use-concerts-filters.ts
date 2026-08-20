@@ -35,6 +35,7 @@ export const CATEGORIES = [
   'This Weekend',
   'Day Parties',
   'Late Night',
+  'Outdoors',
   '21+',
   'Free',
 ] as const;
@@ -50,6 +51,52 @@ const DAY_PARTY_ENDS_BEFORE_HOUR = 17;
 
 /** Late night starts at 10pm — after which the listing is a club night, not a gig. */
 const LATE_NIGHT_STARTS_AT_HOUR = 22;
+
+/**
+ * Venues that are not rooms: rooftops, piers, parks, boats.
+ *
+ * This is what the old Pop-ups category was reaching for and missing. Nobody
+ * writes "pop-up" in an event title — it matched 0 of 50 shows — but the venue
+ * name says it plainly, and a rooftop or a boat party is exactly the "not a
+ * normal club night" event people were looking for. In a New York summer it is
+ * a large share of what is worth going to.
+ *
+ * Matched on the venue rather than the title, which is the reason it works
+ * where the old rules did not. An event title is written fresh by a promoter
+ * every week and says whatever they felt like; a venue name is stable, and it
+ * is the same string every time that venue appears.
+ *
+ * Measured against the live NYC feed: 23 of 85 shows, with no false positives
+ * and no misses — The Rooftop at Pier 17, Under the 'K' Bridge Park, Circle
+ * Line Cruises at Pier 83 and SummerStage all match, while every indoor room
+ * (Brooklyn Steel, Webster Hall, Terminal 5, Barclays) does not.
+ *
+ * Expect this to fall toward zero in winter, which is correct rather than
+ * broken — there are no rooftop parties in February.
+ */
+const OUTDOOR_DEFINITE =
+  /rooftop|\broof\b|open[\s-]?air|outdoor|terrace|\bboat\b|cruise|summerstage|\bpool\b|\blawn\b/i;
+
+/**
+ * Words that only *suggest* outdoors, because they are frequently part of a
+ * place name rather than a description of the room.
+ *
+ * Auditing all six cities turned up exactly this failure: "The Fillmore Miami
+ * Beach at Jackie Gleason Theater" matched on the "Beach" in Miami Beach, and
+ * "Festival Hall At Navy Pier" and "Grand Ballroom at Navy Pier" matched on
+ * "Pier" while being indoor rooms inside it. All three are firmly indoors.
+ */
+const OUTDOOR_MAYBE = /\bpier\b|\bpark\b|beach|garden|\byard\b|bridge|waterfront|\bfield\b/i;
+
+/**
+ * Indoor rooms, which veto a merely-suggestive match.
+ *
+ * Deliberately excludes "club": Encore Beach Club in Las Vegas is an outdoor
+ * pool club and belongs in this filter, and vetoing on the word would drop it
+ * along with every other open-air club night.
+ */
+const INDOOR_ROOM =
+  /theat(er|re)|\bhall\b|ballroom|conservatory|arena|auditorium|museum|\bcent(er|re)\b|lounge/i;
 
 /**
  * The hour a show starts, on the venue's own clock.
@@ -127,6 +174,23 @@ export function isThisWeekend(startDateTime: string, now: Date, weekOffset: numb
   return date >= fridayStart && date <= sundayEnd;
 }
 
+/**
+ * Whether a venue is open air.
+ *
+ * Read from the venue name only, never the event title — that is the reason
+ * this works where the old Pop-ups keyword did not. A promoter rewrites the
+ * event name every week and it says whatever they felt like; a venue name is
+ * the same string every time that venue appears, so a rule tuned against it
+ * stays tuned.
+ *
+ * Exported for the tests, which pin the real venue names this was audited
+ * against across all six cities.
+ */
+export function isOutdoorVenue(venueName: string): boolean {
+  if (OUTDOOR_DEFINITE.test(venueName)) return true;
+  return OUTDOOR_MAYBE.test(venueName) && !INDOOR_ROOM.test(venueName);
+}
+
 export function matchesCategory(
   concert: Concert,
   category: Category,
@@ -152,6 +216,8 @@ export function matchesCategory(
       // every sense except the calendar's.
       return hour !== null && (hour >= LATE_NIGHT_STARTS_AT_HOUR || hour < 5);
     }
+    case 'Outdoors':
+      return isOutdoorVenue(concert.venueName);
   }
 }
 

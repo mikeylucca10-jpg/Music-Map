@@ -1,6 +1,7 @@
 import {
   getWeekWindow,
   isThisWeekend,
+  isOutdoorVenue,
   isWithinActiveWindow,
   matchesCategory,
 } from '@/hooks/use-concerts-filters';
@@ -153,6 +154,73 @@ describe('matchesCategory', () => {
     expect(matchesCategory(nycLate, 'Late Night', THURSDAY, 0)).toBe(true);
     expect(matchesCategory(nycEvening, 'Late Night', THURSDAY, 0)).toBe(false);
     expect(matchesCategory(nycEvening, 'Day Parties', THURSDAY, 0)).toBe(false);
+  });
+
+  // Outdoors reads the venue, never the title. That is the whole reason it
+  // works where the old Pop-ups keyword did not: promoters rewrite event names
+  // every week, but a venue name is the same string every time.
+  it('matches Outdoors on the venue, not the event title', () => {
+    // Every one of these is a real venue name audited from the live feeds of
+    // all six cities, so a tweak to the rule has to keep them classified.
+    for (const venueName of [
+      'The Rooftop at Pier 17',
+      "Under the 'K' Bridge Park",
+      'Circle Line Cruises, Pier 83',
+      'Capital One City Parks Foundation SummerStage',
+      'Los Angeles State Historic Park: On The Promenade',
+      'Exposition Park',
+      'Reframe Studios Outdoors',
+      'Navy Pier',
+      'The Salt Shed Outdoors (Fairgrounds)',
+      // An outdoor pool club. "Club" is deliberately not an indoor veto word,
+      // or every open-air club night in Las Vegas would be excluded.
+      'Encore Beach Club',
+    ]) {
+      expect(isOutdoorVenue(venueName)).toBe(true);
+    }
+
+    for (const venueName of [
+      'Brooklyn Steel',
+      'Webster Hall',
+      'Terminal 5',
+      'Barclays Center',
+      'Night Club 101',
+      'Bowery Ballroom',
+    ]) {
+      expect(isOutdoorVenue(venueName)).toBe(false);
+    }
+  });
+
+  // These three all matched before the audit and are all firmly indoors. A
+  // place name containing "Beach", "Pier" or "Park" says nothing about whether
+  // the room has a roof.
+  it('does not treat an indoor room inside an outdoor place as outdoors', () => {
+    for (const venueName of [
+      'The Fillmore Miami Beach at Jackie Gleason Theater',
+      'Festival Hall At Navy Pier',
+      'Grand Ballroom at Navy Pier',
+      'Garfield Park Conservatory',
+    ]) {
+      expect(isOutdoorVenue(venueName)).toBe(false);
+    }
+  });
+
+  it('lets an explicit outdoor word beat an indoor one', () => {
+    // "Rooftop" is definite, so it wins even next to a room word — the reverse
+    // would exclude a genuine rooftop bar attached to a theatre.
+    expect(isOutdoorVenue('The Rooftop at the Wiltern Theatre')).toBe(true);
+  });
+
+  it('does not let an event title fake an Outdoors match', () => {
+    // "Rooftop Vibes" at an indoor club is not an outdoor show.
+    expect(
+      matchesCategory(
+        makeConcert({ name: 'Rooftop Vibes Tour', venueName: 'Webster Hall' }),
+        'Outdoors',
+        THURSDAY,
+        0,
+      ),
+    ).toBe(false);
   });
 
   it('reads the hour in the venue zone rather than the viewer zone', () => {
