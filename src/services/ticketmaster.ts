@@ -339,6 +339,12 @@ function normalizeEvents(data: TicketmasterResponse): Concert[] {
       source: 'ticketmaster',
       name: event.name,
       artist: event._embedded?.attractions?.[0]?.name,
+      // Names only. The rest of an attraction is images and classifications we
+      // already read elsewhere, and storing the whole object would bloat the
+      // AsyncStorage cache every card render pays to deserialise.
+      lineup: event._embedded?.attractions
+        ?.map((attraction) => attraction.name)
+        .filter((name): name is string => Boolean(name)),
       url: event.url,
       startDateTime,
       // venue.timezone first: measured present on 86/86 NYC and 100/100 LA

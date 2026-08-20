@@ -28,6 +28,7 @@ import { useSavedConcerts } from '@/hooks/use-saved-concerts';
 import { useTheme } from '@/hooks/use-theme';
 import { useUserLocation } from '@/hooks/use-user-location';
 import { getDirectionsUrl } from '@/lib/directions';
+import { getSupportActs } from '@/lib/lineup';
 import {
   formatConcertDateTime,
   formatTimeZoneAbbreviation,
@@ -127,6 +128,7 @@ export default function ConcertScreen() {
   const directionsUrl = fullConcert ? getDirectionsUrl(fullConcert) : undefined;
   const distanceLabel = fullConcert ? distanceLabelFor(userLocation, fullConcert) : undefined;
   const saved = isSaved(concert.id);
+  const supportActs = getSupportActs(concert);
 
   return (
     <ThemedView style={styles.screen}>
@@ -159,6 +161,15 @@ export default function ConcertScreen() {
               {concert.artist && concert.artist !== concert.name && (
                 <ThemedText type="small" themeColor="textSecondary">
                   {concert.artist}
+                </ThemedText>
+              )}
+              {/* The whole bill here, uncapped, where the card shows at most
+                  three names. This is the screen where someone decides whether
+                  to go, and on a four-act club night the fourth name is as
+                  likely to be the deciding one as the first. */}
+              {supportActs.length > 0 && (
+                <ThemedText type="small" themeColor="textSecondary">
+                  w/ {supportActs.join(', ')}
                 </ThemedText>
               )}
             </View>

@@ -25,6 +25,16 @@ export type Concert = {
   source: ConcertSource;
   name: string;
   artist?: string;
+  /**
+   * Every act on the bill, headliner first, as the source ordered them.
+   *
+   * Separate from `artist` rather than replacing it: `artist` is the one name
+   * used for following and for matching alerts, and collapsing a bill into it
+   * would make following a support act indistinguishable from following the
+   * headliner. Measured on the live NYC feed, 8 of 50 kept shows carry two or
+   * more acts, so most cards will not have this.
+   */
+  lineup?: string[];
   url: string;
   startDateTime: string;
   /**
@@ -63,6 +73,7 @@ export type ConcertSummary = Pick<
   | 'id'
   | 'name'
   | 'artist'
+  | 'lineup'
   | 'url'
   | 'startDateTime'
   // Included because every one of these surfaces renders the start time, and
@@ -99,9 +110,12 @@ export type City = {
   ticketmasterCountryCode: string;
   mapCenter: { latitude: number; longitude: number };
   /**
-   * IANA timezone — carried per-city so it's ready for when concert date/time
-   * formatting stops being hardcoded to NYC's timezone (see format-date.ts).
-   * Not wired in yet: only the NYC data is actually vouched for right now.
+   * IANA timezone for the city.
+   *
+   * Only a *fallback* now that times render in the venue's own zone — see
+   * Concert.timezone, which Ticketmaster supplies on every listing measured so
+   * far. This is what a source with thinner data degrades to, plus what the
+   * date sheet uses to decide which day is "today" in the city being browsed.
    */
   timezone: string;
   // Sub-city areas for the filter bar's borough chips. Left undefined for

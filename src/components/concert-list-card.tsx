@@ -10,6 +10,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts, PosterGradient, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatConcertDateTime } from '@/lib/format-date';
+import { formatSupportActs } from '@/lib/lineup';
 import { ConcertSummary } from '@/types/concert';
 
 /**
@@ -91,6 +92,11 @@ function ConcertListCardComponent({
     accessibilityState: { selected: isSaved, disabled: !!isSavePending },
   };
 
+  // Null for most cards — only 8 of 50 kept shows carry a second act, and the
+  // title already names them about half the time. Rendering conditionally
+  // rather than as an empty string keeps the gap out of the layout too.
+  const supportActs = formatSupportActs(concert);
+
   const card = concert.imageUrl ? (
     <View style={[styles.card, width ? { width } : styles.cardFullWidth]}>
       {/* memory-disk rather than the disk default: paging weeks revisits the
@@ -118,6 +124,16 @@ function ConcertListCardComponent({
         <ThemedText type="subtitle" style={styles.overlayTitle} numberOfLines={2}>
           {concert.name}
         </ThemedText>
+        {/* Sits between the title and the logistics line because it answers the
+            same question the title does — who is playing — where the date and
+            venue answer where and when. In electronic music the support is
+            often the reason to go, so it belongs with the billing rather than
+            filed under details. */}
+        {supportActs && (
+          <ThemedText type="small" style={styles.overlaySupport} numberOfLines={1}>
+            {supportActs}
+          </ThemedText>
+        )}
         <ThemedText type="small" style={styles.overlayMeta} numberOfLines={1}>
           {formatConcertDateTime(concert.startDateTime, concert.timezone)} · {concert.venueName}
           {distanceLabel ? ` · ${distanceLabel}` : ''}
@@ -156,6 +172,11 @@ function ConcertListCardComponent({
           </Pressable>
         )}
       </View>
+      {supportActs && (
+        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+          {supportActs}
+        </ThemedText>
+      )}
       <ThemedText type="small" themeColor="textSecondary">
         {formatConcertDateTime(concert.startDateTime, concert.timezone)}
       </ThemedText>
@@ -220,6 +241,14 @@ const styles = StyleSheet.create({
   },
   overlayMeta: {
     color: Colors.dark.overlayInkMuted,
+  },
+  // Brighter than the meta line beneath it and dimmer than the title above,
+  // which puts the three lines in the order they should be read. Same muted ink
+  // would have flattened the support into the date and venue, and full overlay
+  // ink would have competed with the show's own name.
+  overlaySupport: {
+    color: Colors.dark.overlayInk,
+    opacity: 0.85,
   },
   noImageCard: {
     gap: Spacing.one,
