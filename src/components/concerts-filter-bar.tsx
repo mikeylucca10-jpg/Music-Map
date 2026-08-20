@@ -85,19 +85,21 @@ export function ConcertsFilterBar({
   const selectedBorough = city.boroughs?.find((borough) => borough.id === selectedBoroughId);
   const cityPillLabel = selectedBorough?.label ?? city.label;
 
-  // Cities and their boroughs flattened into one list, boroughs indented under
-  // the city they belong to. Picking "Brooklyn" therefore sets both city and
-  // borough in a single tap, and the nesting is what makes that relationship
-  // readable — a separate borough control would imply the two are independent
-  // choices, which they are not.
-  const cityOptions: SelectOption[] = cities.flatMap((item) => [
-    { id: item.id, label: item.label },
-    ...(item.boroughs ?? []).map((borough) => ({
+  // One row per city, with a city's areas behind a tap rather than listed
+  // underneath it. At six cities a flat list with New York expanded is eleven
+  // rows; the flat shape stops working long before the city list gets long,
+  // and every city's sub-areas being on screen at once is noise for whoever
+  // is not looking at that city.
+  const cityOptions: SelectOption[] = cities.map((item) => ({
+    id: item.id,
+    label: item.label,
+    detail: item.boroughs?.length ? `${item.boroughs.length} areas` : undefined,
+    selfLabel: item.boroughs?.length ? `All of ${item.label}` : undefined,
+    children: item.boroughs?.map((borough) => ({
       id: `${item.id}:${borough.id}`,
       label: borough.label,
-      nested: true,
     })),
-  ]);
+  }));
   const selectedCityOptionId = selectedBorough ? `${city.id}:${selectedBorough.id}` : city.id;
 
   function handleCitySelect(optionId: string) {
@@ -117,7 +119,7 @@ export function ConcertsFilterBar({
     // room to say so in a dropdown row; a sheet has the space.
     detail:
       item === 'Pop-ups' || item === 'Festivals' || item === 'Clubs' || item === 'Day Parties'
-        ? 'Matched from the event name'
+        ? 'Guessed from the title, may miss shows'
         : undefined,
   }));
 

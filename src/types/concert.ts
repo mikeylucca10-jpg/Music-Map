@@ -51,6 +51,15 @@ export type Concert = {
    * listing measured so far.
    */
   timezone?: string;
+  /**
+   * Other times this same show is listed at on the same night.
+   *
+   * Populated by dedupeConcerts when one show at one venue appears more than
+   * once in a night -- either a duplicate listing or a real early/late set,
+   * which the feed gives no way to tell apart. Empty or absent for almost
+   * every show.
+   */
+  alsoStartsAt?: string[];
   venueName: string;
   address: string;
   latitude: number;
@@ -81,6 +90,7 @@ export type ConcertSummary = Pick<
   // also has to persist with saved concerts: a saved LA show still has to read
   // 9pm after you fly home.
   | 'timezone'
+  | 'alsoStartsAt'
   | 'venueName'
   | 'address'
   | 'imageUrl'

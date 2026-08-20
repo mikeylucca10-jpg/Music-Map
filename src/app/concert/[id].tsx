@@ -30,7 +30,7 @@ import { useUserLocation } from '@/hooks/use-user-location';
 import { getDirectionsUrl } from '@/lib/directions';
 import { getSupportActs } from '@/lib/lineup';
 import {
-  formatConcertDateTime,
+  formatConcertDateTimeWithExtras,
   formatTimeZoneAbbreviation,
   shouldShowTimeZone,
 } from '@/lib/format-date';
@@ -205,7 +205,7 @@ export default function ConcertScreen() {
                 decides whether they can actually make it, so it earns the
                 clarification here and not on the list card. */}
             <ThemedText type="default">
-              {formatConcertDateTime(concert.startDateTime, concert.timezone)}
+              {formatConcertDateTimeWithExtras(concert.startDateTime, concert.alsoStartsAt, concert.timezone)}
               {shouldShowTimeZone(concert.startDateTime, concert.timezone)
                 ? ` ${formatTimeZoneAbbreviation(concert.startDateTime, concert.timezone)}`
                 : ''}

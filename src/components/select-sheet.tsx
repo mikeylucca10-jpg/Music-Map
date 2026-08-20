@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -11,8 +12,22 @@ export type SelectOption = {
   label: string;
   /** Secondary line — a count, a hint, whatever the row needs to say. */
   detail?: string;
-  /** Indents the row under the option above it, for boroughs under a city. */
-  nested?: boolean;
+  /**
+   * A second level, revealed by tapping this row rather than listed beneath it.
+   *
+   * Boroughs were indented under their city in one flat list, which works at
+   * six cities and stops working well before sixty: every city's sub-areas are
+   * on screen at once whether or not you care about them, and New York alone
+   * turned a six-row list into eleven. Drilling in keeps the top level one row
+   * per city no matter how many exist.
+   */
+  children?: SelectOption[];
+  /**
+   * Row shown at the top of a drilled-in level to pick the parent itself —
+   * "All of New York" rather than a specific borough. Without it, tapping into
+   * a city would be a one-way trip into having to choose a sub-area.
+   */
+  selfLabel?: string;
 };
 
 type SelectSheetProps = {
@@ -58,18 +73,63 @@ export function SelectSheet({
   const theme = useTheme();
   const { height } = useWindowDimensions();
 
+  // Which parent we have drilled into, or null at the top level. Held as the
+  // option id rather than the option itself so it cannot go stale if the list
+  // is rebuilt underneath — the id is looked up fresh on every render.
+  const [drilledId, setDrilledId] = useState<string | null>(null);
+  const drilled = drilledId ? (options.find((option) => option.id === drilledId) ?? null) : null;
+
+  // Reset to the top level whenever the sheet is reopened, so it never comes
+  // back showing the sub-list somebody backed out of last time. Compared during
+  // render rather than in an effect, matching how the date sheet re-stages its
+  // pending selection.
+  const [wasVisible, setWasVisible] = useState(visible);
+  if (visible !== wasVisible) {
+    setWasVisible(visible);
+    if (visible && drilledId) setDrilledId(null);
+  }
+
+  const rows: SelectOption[] = drilled
+    ? [
+        ...(drilled.selfLabel ? [{ id: drilled.id, label: drilled.selfLabel }] : []),
+        ...(drilled.children ?? []),
+      ]
+    : options;
+
+  function close() {
+    setDrilledId(null);
+    onClose();
+  }
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={close}>
+      <Pressable style={styles.backdrop} onPress={close} accessibilityLabel="Close" />
       <ThemedView
         type="backgroundElement"
         style={[styles.sheet, { paddingBottom: insets.bottom + Spacing.three }]}>
         <View style={styles.grabber} />
 
         <View style={styles.header}>
-          <ThemedText type="subtitle">{title}</ThemedText>
+          {/* Back replaces nothing at the top level — the title simply shifts to
+              name where you are. A drilled-in sheet with no way back would trap
+              someone who tapped the wrong city. */}
+          {drilled ? (
+            <Pressable
+              onPress={() => setDrilledId(null)}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel={`Back to ${title}`}
+              style={({ pressed }) => [styles.backRow, pressed && styles.pressed]}>
+              <ThemedText allowFontScaling={false} style={styles.closeIcon}>
+                ‹
+              </ThemedText>
+              <ThemedText type="subtitle">{drilled.label}</ThemedText>
+            </Pressable>
+          ) : (
+            <ThemedText type="subtitle">{title}</ThemedText>
+          )}
           <Pressable
-            onPress={onClose}
+            onPress={close}
             hitSlop={10}
             accessibilityRole="button"
             accessibilityLabel="Close"
@@ -84,25 +144,33 @@ export function SelectSheet({
             instead of pushing the sheet past the top of the display, while a
             short one still sits low and close to the thumb. */}
         <ScrollView style={{ maxHeight: height * 0.6 }} showsVerticalScrollIndicator={false}>
-          {options.map((option) => {
+          {rows.map((option) => {
             const selected = option.id === selectedId;
+            // Only drill in from the top level, so a sub-list cannot nest
+            // further. Two levels is all the data has, and an unbounded stack
+            // would need a breadcrumb this sheet has no room for.
+            const canDrill = !drilled && Boolean(option.children?.length);
             return (
               <Pressable
                 key={option.id}
                 onPress={() => {
+                  if (canDrill) {
+                    setDrilledId(option.id);
+                    return;
+                  }
                   onSelect(option.id);
-                  onClose();
+                  close();
                 }}
                 accessibilityRole="button"
-                accessibilityState={{ selected }}
+                accessibilityState={canDrill ? undefined : { selected }}
                 accessibilityLabel={
-                  option.detail ? `${option.label}, ${option.detail}` : option.label
+                  canDrill
+                    ? `${option.label}, ${option.children?.length} areas. Opens a list.`
+                    : option.detail
+                      ? `${option.label}, ${option.detail}`
+                      : option.label
                 }
-                style={({ pressed }) => [
-                  styles.row,
-                  option.nested && styles.rowNested,
-                  pressed && styles.pressed,
-                ]}>
+                style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
                 <View style={styles.rowLabel}>
                   <ThemedText
                     type={selected ? 'smallBold' : 'default'}
@@ -119,8 +187,15 @@ export function SelectSheet({
                 {/* A check as well as the colour. Selected state carried by hue
                     alone fails for anyone who cannot separate those two reds,
                     and it is the one state on this sheet that has to be
-                    unambiguous. */}
-                {selected ? (
+                    unambiguous. A chevron instead when the row opens a list —
+                    the two mean opposite things and must not look alike. */}
+                {canDrill ? (
+                  <ThemedText
+                    allowFontScaling={false}
+                    style={[styles.check, { color: theme.textSecondary }]}>
+                    ›
+                  </ThemedText>
+                ) : selected ? (
                   <ThemedText
                     allowFontScaling={false}
                     style={[styles.check, { color: theme.accentText }]}>
@@ -161,6 +236,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   closeIcon: { fontSize: 18 },
+  backRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -171,9 +247,6 @@ const styles = StyleSheet.create({
     minHeight: MinTouchTarget + 8,
     paddingVertical: Spacing.two,
   },
-  // Boroughs sit under the city they belong to, so the relationship is legible
-  // without a second screen or a separate control.
-  rowNested: { paddingLeft: Spacing.four },
   rowLabel: { flex: 1, gap: Spacing.half },
   check: { fontSize: 16 },
   pressed: { opacity: 0.7 },

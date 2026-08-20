@@ -9,7 +9,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts, PosterGradient, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { formatConcertDateTime } from '@/lib/format-date';
+import { formatConcertDateTimeWithExtras } from '@/lib/format-date';
 import { formatSupportActs } from '@/lib/lineup';
 import { ConcertSummary } from '@/types/concert';
 
@@ -135,7 +135,7 @@ function ConcertListCardComponent({
           </ThemedText>
         )}
         <ThemedText type="small" style={styles.overlayMeta} numberOfLines={1}>
-          {formatConcertDateTime(concert.startDateTime, concert.timezone)} · {concert.venueName}
+          {formatConcertDateTimeWithExtras(concert.startDateTime, concert.alsoStartsAt, concert.timezone)} · {concert.venueName}
           {distanceLabel ? ` · ${distanceLabel}` : ''}
         </ThemedText>
       </View>
@@ -178,7 +178,7 @@ function ConcertListCardComponent({
         </ThemedText>
       )}
       <ThemedText type="small" themeColor="textSecondary">
-        {formatConcertDateTime(concert.startDateTime, concert.timezone)}
+        {formatConcertDateTimeWithExtras(concert.startDateTime, concert.alsoStartsAt, concert.timezone)}
       </ThemedText>
       <ThemedText type="small" themeColor="textSecondary">
         {concert.venueName}

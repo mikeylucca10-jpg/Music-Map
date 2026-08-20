@@ -169,3 +169,22 @@ const weekRangeFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', da
 export function formatWeekRangeLabel(weekStart: Date, weekEnd: Date) {
   return `${weekRangeFormatter.format(weekStart)} – ${weekRangeFormatter.format(weekEnd)}`;
 }
+
+/**
+ * "Sat, Sep 12, 3:00 PM & 6:00 PM" -- one date, every time it is listed at.
+ *
+ * The date is stated once because the extra times are always the same night;
+ * repeating it would make one show read as two. Ampersand rather than a comma
+ * so the second time cannot be mistaken for a second date.
+ */
+export function formatConcertDateTimeWithExtras(
+  startDateTime: string,
+  alsoStartsAt: string[] | undefined,
+  timeZone = DEFAULT_TIME_ZONE,
+) {
+  const primary = formatConcertDateTime(startDateTime, timeZone);
+  if (!alsoStartsAt?.length) return primary;
+  const timeOnly = cachedFormatter('timeonly', timeZone, { hour: 'numeric', minute: '2-digit' });
+  const extras = alsoStartsAt.map((time) => timeOnly.format(new Date(time)));
+  return [primary, ...extras].join(' & ');
+}
