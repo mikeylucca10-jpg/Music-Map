@@ -18,6 +18,19 @@
 const DISCOVERY_EVENTS_URL = 'https://app.ticketmaster.com/discovery/v2/events.json';
 
 /**
+ * How many pages to walk before giving up on a city.
+ *
+ * Five, because Discovery refuses to page past the 1000th result of any query
+ * — the documented rule is size * page < 1000, and at 199 per page that lands
+ * on five. This is Ticketmaster's ceiling, not a budget of ours: it cannot be
+ * raised by paying, and a city with more than ~1000 upcoming listings simply
+ * cannot be retrieved in full by one query. Splitting the query by date range
+ * is the escape hatch if that ever happens; nothing is close today, with the
+ * busiest city at 400.
+ */
+const MAX_PAGES = 5;
+
+/**
  * Cities this proxy will query, mirroring CITIES in src/types/concert.ts.
  *
  * Duplicated deliberately. The server cannot trust a city name sent by a
@@ -123,21 +136,76 @@ Deno.serve(async (req) => {
   // matches nothing.
   for (const name of city.cities) params.append('city', name);
 
-  let upstream: Response;
-  try {
-    upstream = await fetch(`${DISCOVERY_EVENTS_URL}?${params.toString()}`);
-  } catch {
-    return json({ error: 'Could not reach the listings service.' }, 502);
+  // Pages are walked until the city is exhausted rather than taking the first
+  // 199 and stopping.
+  //
+  // Only Las Vegas needs this today -- it returned 199 of 400, losing 201
+  // listings with no error and no sign anything was missing, because Vegas is
+  // residency-heavy and has three pages where every other city has one. New
+  // York fits in a single page at 134 of 134.
+  //
+  // It is built anyway because the failure mode is silent. A city that outgrows
+  // one page just quietly starts hiding half its listings, and New York or
+  // Miami will reach that point on their own eventually -- sooner if a second
+  // source is ever merged per metro.
+  const events: unknown[] = [];
+  let firstPayload: Record<string, unknown> | null = null;
+  let totalElements = 0;
+
+  for (let page = 0; page < MAX_PAGES; page++) {
+    params.set('page', String(page));
+
+    let upstream: Response;
+    try {
+      upstream = await fetch(`${DISCOVERY_EVENTS_URL}?${params.toString()}`);
+    } catch {
+      // A later page failing is not worth discarding the pages already in
+      // hand: a partial listing is a working app, an error is a blank screen.
+      if (page === 0) return json({ error: 'Could not reach the listings service.' }, 502);
+      break;
+    }
+
+    if (!upstream.ok) {
+      // The upstream status is echoed but the key is never in the response, and
+      // the message stays generic — a 401 here means our key is wrong, which is
+      // not something a caller should be told in detail.
+      if (page === 0) return json({ error: `Listings service returned ${upstream.status}.` }, 502);
+      break;
+    }
+
+    const body = await upstream.json();
+    if (page === 0) {
+      firstPayload = body;
+      totalElements = body?.page?.totalElements ?? 0;
+    }
+
+    const pageEvents = body?._embedded?.events ?? [];
+    events.push(...pageEvents);
+
+    const totalPages = body?.page?.totalPages ?? 1;
+    // An empty page also ends the walk: Discovery returns one rather than an
+    // error once a request runs past the deep-paging ceiling.
+    if (page + 1 >= totalPages || pageEvents.length === 0) break;
   }
 
-  if (!upstream.ok) {
-    // The upstream status is echoed but the key is never in the response, and
-    // the message stays generic — a 401 here means our key is wrong, which is
-    // not something a caller should be told in detail.
-    return json({ error: `Listings service returned ${upstream.status}.` }, 502);
-  }
+  // Rebuilt rather than returned as-is, so `page` describes what is actually
+  // in this response instead of describing page 0 of the upstream result.
+  const merged = {
+    ...firstPayload,
+    _embedded: { ...(firstPayload?._embedded ?? {}), events },
+    page: {
+      size: events.length,
+      totalElements,
+      totalPages: 1,
+      number: 0,
+      // Set when the deep-paging ceiling stopped the walk before the city ran
+      // out. Nothing reads it yet; it exists so this can be noticed rather than
+      // silently under-reporting the way the single-page version did.
+      truncated: events.length < totalElements,
+    },
+  };
 
-  const payload = await upstream.text();
+  const payload = JSON.stringify(merged);
   cache.set(cityId, { at: Date.now(), body: payload });
 
   return new Response(payload, {
