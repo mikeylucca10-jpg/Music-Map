@@ -21,12 +21,13 @@
  * so a single `color` argument tints the whole icon.
  */
 
-export type TabIconName = 'home' | 'explore' | 'ask' | 'settings';
+export type TabIconName = 'home' | 'search' | 'explore' | 'ask' | 'settings';
 
 // 24x24 viewBox. Kept deliberately simple: these are read at 22pt, where extra
 // detail is invisible and only costs bytes.
 const PATHS: Record<TabIconName, string> = {
   home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+  search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20.5 20.5 16 16',
   explore: 'M9 3 3 5.5v15L9 18l6 3 6-2.5v-15L15 6 9 3zM9 3v15M15 6v15',
   ask: 'M21 11.5a8 8 0 0 1-8 8H8l-5 3 1.5-4.5a8 8 0 1 1 16.5-6.5z',
   settings:

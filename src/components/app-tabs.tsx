@@ -22,6 +22,14 @@ export default function AppTabs() {
         />
       </NativeTabs.Trigger>
 
+      {/* Second, not last. Search is the way in when someone arrives with a
+          name in mind rather than to browse, and that is a common enough
+          entry point to sit beside Home. */}
+      <NativeTabs.Trigger name="search">
+        <NativeTabs.Trigger.Label>Search</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="magnifyingglass" md="search" />
+      </NativeTabs.Trigger>
+
       <NativeTabs.Trigger name="explore">
         <NativeTabs.Trigger.Label>Explore</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
