@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { NotificationPermissionPrompt } from '@/components/notification-permission-prompt';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Radius, Spacing } from '@/constants/theme';
@@ -11,6 +12,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useEdmConcerts } from '@/hooks/use-edm-concerts';
 import { useFollows } from '@/hooks/use-follows';
 import { useProfile } from '@/hooks/use-profile';
+import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { useTheme } from '@/hooks/use-theme';
 import { addFollows, followKey, FollowKind } from '@/services/follows';
 import { CITIES } from '@/types/concert';
@@ -45,6 +47,11 @@ export default function FollowPickerScreen() {
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+  // Non-null while the alerts sheet is up; also carries the name shown in its
+  // preview, so one piece of state answers both "is it open" and "what does it
+  // say" rather than letting those two drift apart.
+  const [pushSampleName, setPushSampleName] = useState<string | null>(null);
+  const { shouldAsk, request, decline } = usePushNotifications(session?.user.id ?? null);
 
   const alreadyFollowed = useMemo(
     () => new Set(follows.map((follow) => `${follow.kind}:${follow.key}`)),
@@ -97,6 +104,16 @@ export default function FollowPickerScreen() {
         .map((candidate) => ({ kind: candidate.kind, name: candidate.name }));
       await addFollows(session.user.id, items);
       await refresh();
+      // The ask lands here rather than at launch, and that placement is the
+      // whole reason it works. Someone who has just followed six acts has
+      // demonstrated exactly the intent a new-show alert serves, so the request
+      // reads as the obvious next step rather than an interruption from an app
+      // they have not yet understood. Asking on first launch is the single
+      // biggest cause of low opt-in.
+      if (shouldAsk) {
+        setPushSampleName(items[0]?.name ?? null);
+        return;
+      }
       goBack();
     } finally {
       setSaving(false);
@@ -116,6 +133,25 @@ export default function FollowPickerScreen() {
 
   return (
     <ThemedView style={styles.screen}>
+      {/* Either answer leaves the screen. The follows are already saved by the
+          time this appears, so declining costs nothing that was just done —
+          which is exactly what makes "Not Now" a real option rather than a
+          threat to the work in progress. */}
+      <NotificationPermissionPrompt
+        visible={pushSampleName !== null}
+        sampleName={pushSampleName ?? undefined}
+        onAllow={async () => {
+          await request();
+          setPushSampleName(null);
+          goBack();
+        }}
+        onDeny={async () => {
+          await decline();
+          setPushSampleName(null);
+          goBack();
+        }}
+      />
+
       <View style={[styles.header, { paddingTop: insets.top + Spacing.three }]}>
         <ThemedText type="subtitle">Follow a few</ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
