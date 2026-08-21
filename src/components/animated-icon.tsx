@@ -1,39 +1,60 @@
-import { Image } from 'expo-image';
 import * as SplashScreen from 'expo-splash-screen';
 import { useState } from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, Keyframe } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-const INITIAL_SCALE_FACTOR = Dimensions.get('screen').height / 90;
-const DURATION = 600;
+import { Colors, DisplayFontFamily } from '@/constants/theme';
 
+/**
+ * Short on purpose.
+ *
+ * A splash past about 1.5 seconds costs roughly 12% of users to abandonment,
+ * and past three seconds more than half of new ones. This is a handshake, not
+ * a brand presentation: it exists to cover the gap while fonts and the first
+ * listings resolve, and it should be gone before anyone decides to wait.
+ */
+const DURATION = 450;
+
+/**
+ * The app's own launch screen, replacing the Expo starter template's.
+ *
+ * What was here before was entirely Expo's: expo-logo.png on Expo blue
+ * (#208AEF), with a blue gradient card behind it. The app it introduces is
+ * near-black with a red accent, so every launch flashed bright blue and then
+ * cut to a dark app — and, worse, branded the product as somebody else's for
+ * the first half-second of every session.
+ *
+ * A wordmark rather than a logo, because there is no logo and inventing a mark
+ * would be a worse guess than using the identity the app already has. The
+ * display face is the identity here: Archivo Expanded is wide and heavy
+ * precisely because it reads as marquee signage, which is the subject. Setting
+ * the name in it on the app's own ground says more than a placeholder symbol
+ * would.
+ *
+ * The native splash in app.json now uses the same background, so the handoff
+ * from it to this is invisible — no flash between the two.
+ */
 export function AnimatedSplashOverlay() {
   const [animate, setAnimate] = useState(false);
   const [visible, setVisible] = useState(true);
 
   if (!visible) return null;
 
+  // Fades rather than moves. A splash that slides or scales draws attention to
+  // itself at the exact moment attention should be moving to the content
+  // behind it, and motion here delays nothing while adding nothing.
   const splashKeyframe = new Keyframe({
-    0: {
-      transform: [{ scale: 1 }],
-      opacity: 1,
-    },
-    20: {
-      opacity: 1,
-    },
-    70: {
-      opacity: 0,
-      easing: Easing.elastic(0.7),
-    },
-    100: {
-      opacity: 0,
-      transform: [{ scale: 1 }],
-      easing: Easing.elastic(0.7),
-    },
+    0: { opacity: 1 },
+    40: { opacity: 1 },
+    100: { opacity: 0, easing: Easing.out(Easing.quad) },
   });
 
-  const image = <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />;
+  const wordmark = (
+    <Text style={styles.wordmark} allowFontScaling={false}>
+      MUSIC MAP
+    </Text>
+  );
 
   return animate ? (
     <Animated.View
@@ -44,105 +65,43 @@ export function AnimatedSplashOverlay() {
         }
       })}
       style={styles.splashOverlay}>
-      {image}
+      {wordmark}
     </Animated.View>
   ) : (
     <View
+      // Hidden on first layout rather than on a timer: the native splash stays
+      // up until this view has actually painted, so there is never a frame of
+      // empty screen between the two.
       onLayout={() => {
         SplashScreen.hideAsync().finally(() => {
           setAnimate(true);
         });
       }}
       style={styles.splashOverlay}>
-      {image}
-    </View>
-  );
-}
-
-const keyframe = new Keyframe({
-  0: {
-    transform: [{ scale: INITIAL_SCALE_FACTOR }],
-  },
-  100: {
-    transform: [{ scale: 1 }],
-    easing: Easing.elastic(0.7),
-  },
-});
-
-const logoKeyframe = new Keyframe({
-  0: {
-    transform: [{ scale: 1.3 }],
-    opacity: 0,
-  },
-  40: {
-    transform: [{ scale: 1.3 }],
-    opacity: 0,
-    easing: Easing.elastic(0.7),
-  },
-  100: {
-    opacity: 1,
-    transform: [{ scale: 1 }],
-    easing: Easing.elastic(0.7),
-  },
-});
-
-const glowKeyframe = new Keyframe({
-  0: {
-    transform: [{ rotateZ: '0deg' }],
-  },
-  100: {
-    transform: [{ rotateZ: '7200deg' }],
-  },
-});
-
-export function AnimatedIcon() {
-  return (
-    <View style={styles.iconContainer}>
-      <Animated.View entering={glowKeyframe.duration(60 * 1000 * 4)} style={styles.glow}>
-        <Image style={styles.glow} source={require('@/assets/images/logo-glow.png')} />
-      </Animated.View>
-
-      <Animated.View entering={keyframe.duration(DURATION)} style={styles.background} />
-      <Animated.View style={styles.imageContainer} entering={logoKeyframe.duration(DURATION)}>
-        <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />
-      </Animated.View>
+      {wordmark}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  imageContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  glow: {
-    width: 201,
-    height: 201,
-    position: 'absolute',
-  },
-  iconContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 128,
-    height: 128,
-    zIndex: 100,
-  },
-  image: {
-    width: 76,
-    height: 71,
-  },
-  background: {
-    borderRadius: 40,
-    experimental_backgroundImage: `linear-gradient(180deg, #3C9FFE, #0274DF)`,
-    width: 128,
-    height: 128,
-    position: 'absolute',
-  },
   splashOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#208AEF',
+    // Matches the native splash exactly, so the handoff between them cannot be
+    // seen. Read from Colors rather than hardcoded, since this is the one
+    // colour that has to agree with app.json.
+    backgroundColor: Colors.dark.background,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1000,
+  },
+  wordmark: {
+    fontFamily: DisplayFontFamily,
+    // Off-scale deliberately: this is a wordmark, not body copy, and it is the
+    // only text on the screen. Letter-spacing opens it up the way signage is
+    // set rather than the way a headline is.
+    fontSize: 30,
+    lineHeight: 36,
+    letterSpacing: 2,
+    color: Colors.dark.text,
   },
 });
