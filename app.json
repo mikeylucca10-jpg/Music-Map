@@ -22,7 +22,11 @@
         "googleMaps": {
           "apiKey": "REPLACE_WITH_YOUR_GOOGLE_MAPS_API_KEY"
         }
-      }
+      },
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "output": "static",
@@ -49,6 +53,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "8808b60d-cc02-4a30-88c8-7dd72c1a8aed"
+      }
+    },
+    "owner": "mikeylucca"
   }
 }
