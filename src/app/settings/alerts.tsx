@@ -1,4 +1,4 @@
-import { StyleSheet, Switch, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import { SettingsDetailScreen } from '@/components/settings-detail-screen';
 import { ThemedText } from '@/components/themed-text';
@@ -7,6 +7,7 @@ import { Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useFollows } from '@/hooks/use-follows';
 import { useNotificationPrefs } from '@/hooks/use-notification-prefs';
+import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
@@ -24,11 +25,52 @@ export default function AlertsSettingsScreen() {
   const userId = session?.user.id ?? null;
   const { prefs, setPref, error } = useNotificationPrefs(userId);
   const { follows } = useFollows(userId);
+  const { status: pushStatus, unsupportedReason, request } = usePushNotifications(userId);
 
   return (
     <SettingsDetailScreen
       title="Alerts"
       subtitle="At most one a week, and never for anything you don't follow.">
+      {/* The permission control belongs here, and its absence was a real hole.
+          The soft-ask previously only existed inside the follow picker, so
+          anyone who followed an act from a show screen — the far more common
+          way to follow — was never asked, and had no way to ask later. The
+          toggles below would sit there looking switched on while nothing could
+          ever be delivered. */}
+      {pushStatus !== 'granted' && (
+        <View style={styles.list}>
+          <ThemedView type="backgroundSelected" style={styles.enableCard}>
+            <ThemedText type="smallBold">
+              {unsupportedReason ? 'Not available here' : 'Alerts are off'}
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {unsupportedReason ??
+                (pushStatus === 'denied'
+                  ? 'Notifications are blocked for this app. You can turn them back on in your device settings.'
+                  : 'Turn these on and we’ll tell you the day something you follow is announced.')}
+            </ThemedText>
+            {/* No button when the OS will not show a dialog. A control that
+                cannot work is worse than none — it invites a tap that does
+                nothing and teaches people the app is broken. */}
+            {!unsupportedReason && pushStatus !== 'denied' && (
+              <Pressable
+                onPress={request}
+                accessibilityRole="button"
+                accessibilityLabel="Turn on alerts"
+                style={({ pressed }) => [
+                  styles.enableButton,
+                  { backgroundColor: theme.accent },
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText type="smallBold" style={{ color: theme.accentInk }}>
+                  Turn On Alerts
+                </ThemedText>
+              </Pressable>
+            )}
+          </ThemedView>
+        </View>
+      )}
+
       <View style={styles.list}>
         <AlertToggle
           label="New shows"
@@ -117,4 +159,13 @@ const styles = StyleSheet.create({
   },
   rowLabel: { flex: 1, gap: Spacing.half },
   note: { paddingHorizontal: Spacing.four },
+  enableCard: { gap: Spacing.two, padding: Spacing.three, borderRadius: Radius.card },
+  enableButton: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.two,
+    borderRadius: Radius.pill,
+    marginTop: Spacing.one,
+  },
+  pressed: { opacity: 0.75 },
 });
