@@ -8,7 +8,8 @@
     "scheme": "myexpoapp",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.mikeylucca.musicmap"
     },
     "android": {
       "adaptiveIcon": {
@@ -26,7 +27,8 @@
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
-      ]
+      ],
+      "package": "com.mikeylucca.musicmap"
     },
     "web": {
       "output": "static",
