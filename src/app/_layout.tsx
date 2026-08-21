@@ -47,6 +47,14 @@ export default function RootLayout() {
         {/* Parked, not a tab, but reachable at /ask -- it has to sit outside
             (tabs) for that, exactly like the legal pages. */}
         {/* Slides up: it is a task you come back from, not a place you go. */}
+        {/* Settings sub-screens. Pushed over the tab bar rather than living
+            inside the tabs group, so each keeps its own back button and the
+            Settings tab stays the one entry point. */}
+        <Stack.Screen name="settings/alerts" />
+        <Stack.Screen name="settings/following" />
+        <Stack.Screen name="settings/city" />
+        <Stack.Screen name="settings/saved" />
+
         <Stack.Screen name="follow-picker" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="ask" />
         <Stack.Screen name="privacy-policy" />

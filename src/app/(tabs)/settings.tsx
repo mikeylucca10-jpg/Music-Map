@@ -1,55 +1,27 @@
 import { router, Link } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
-import { ConcertListCard } from '@/components/concert-list-card';
 import { ScreenScaffold } from '@/components/screen-scaffold';
-import { SkeletonCard } from '@/components/skeleton-card';
+import { SettingsRow } from '@/components/settings-row';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useProfile } from '@/hooks/use-profile';
 import { useFollows } from '@/hooks/use-follows';
-import { useNotificationPrefs } from '@/hooks/use-notification-prefs';
 import { useSavedConcerts } from '@/hooks/use-saved-concerts';
 import { useTheme } from '@/hooks/use-theme';
-import { CITIES, SavedConcert } from '@/types/concert';
-
-const SAVED_CARD_WIDTH = 170;
-
-/**
- * One card plus the gap between cards. getItemLayout works in absolute offsets,
- * so the row's `gap` has to be part of the stride or every card past the first
- * is reported at the wrong position and the scroller jumps when it corrects.
- */
-const SAVED_CARD_STRIDE = SAVED_CARD_WIDTH + Spacing.three;
-
-const keyExtractor = (concert: SavedConcert) => concert.id;
-
-const getSavedItemLayout = (_data: ArrayLike<SavedConcert> | null | undefined, index: number) => ({
-  length: SAVED_CARD_WIDTH,
-  offset: SAVED_CARD_STRIDE * index,
-  index,
-});
+import { CITIES } from '@/types/concert';
 
 export default function SettingsScreen() {
   const { session, isLoading, error, isSupabaseConfigured, signIn, signUp, signOut, resetPassword } =
     useAuth();
   const userId = session?.user.id ?? null;
   const { profile, error: profileError, updateProfile } = useProfile(userId);
-  const {
-    savedConcerts,
-    pastConcerts,
-    isLoading: isSavedConcertsLoading,
-    isSavePending,
-    error: savedConcertsError,
-    toggleSave,
-  } = useSavedConcerts(userId);
+  // Counts only — the lists themselves live on settings/saved.tsx now.
+  const { savedConcerts, pastConcerts } = useSavedConcerts(userId);
   const [mode, setMode] = useState<'signIn' | 'signUp'>('signIn');
-  // Past shows stay reachable rather than vanishing: a concert you went to is a
-  // record worth keeping, it just should not sit at the top of your plans.
-  const [savedScope, setSavedScope] = useState<'upcoming' | 'past'>('upcoming');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -58,25 +30,8 @@ export default function SettingsScreen() {
   const [confirmationPendingEmail, setConfirmationPendingEmail] = useState<string | null>(null);
   const [resetEmailSent, setResetEmailSent] = useState<string | null>(null);
 
-  const { follows, isFollowing, isFollowPending, toggleFollow } = useFollows(userId);
-  const { prefs, setPref } = useNotificationPrefs(userId);
+  const { follows } = useFollows(userId);
   const theme = useTheme();
-
-  // Stable identities so ConcertListCard's memo actually holds across renders
-  // of this screen — it re-renders on every keystroke in the name field.
-  const renderSavedConcert = useCallback(
-    ({ item }: { item: SavedConcert }) => (
-      <ConcertListCard
-        concert={item}
-        width={SAVED_CARD_WIDTH}
-        onPress={(concert) => router.push({ pathname: '/concert/[id]', params: { id: concert.id } })}
-        isSaved
-        isSavePending={isSavePending(item.id)}
-        onToggleSave={toggleSave}
-      />
-    ),
-    [isSavePending, toggleSave],
-  );
 
   async function submit() {
     setIsSubmitting(true);
@@ -176,187 +131,49 @@ export default function SettingsScreen() {
         </ThemedView>
       )}
 
+      {/* A table of contents rather than every section expanded at once.
+          Settings used to render the city picker, the follow list, the alert
+          toggles and the saved concerts inline, so it was a long scroll with no
+          overview and a long follow list pushed everything below it off the
+          screen. Each row now opens its own screen, and carries its current
+          answer so the common question is settled without tapping. */}
       {isSupabaseConfigured && !isLoading && session && (
         <ThemedView style={styles.savedSection}>
           <ThemedText type="eyebrow" themeColor="textSecondary" style={styles.savedHeading}>
-            Default City
+            Your Music
           </ThemedText>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.cityRow}>
-            {CITIES.map((city) => {
-              const selected = profile?.defaultCity === city.id;
-              return (
-                <Pressable
-                  key={city.id}
-                  onPress={() => updateProfile({ defaultCity: city.id })}
-                  style={({ pressed }) => pressed && styles.pressed}>
-                  <ThemedView
-                    style={[
-                      styles.cityChip,
-                      { backgroundColor: selected ? theme.accent : theme.backgroundElement },
-                    ]}>
-                    <ThemedText
-                      type="smallBold"
-                      style={{ color: selected ? theme.accentInk : theme.text }}>
-                      {city.label}
-                    </ThemedText>
-                  </ThemedView>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-          <ThemedText type="small" themeColor="textSecondary" style={styles.centerText}>
-            Sets which city Home, Explore, and List open to by default.
-          </ThemedText>
-        </ThemedView>
-      )}
-
-      {/* The management half of following: a list of names you prune, as
-            distinct from the home filter, which is a list of shows you browse.
-            Low traffic by nature -- you come here to unfollow, not to look
-            around -- which is why it sits in Settings rather than taking a tab. */}
-        {follows.length > 0 && (
-          <ThemedView style={styles.savedSection}>
-            <View style={styles.savedHeadingRow}>
-              <ThemedText type="eyebrow" themeColor="textSecondary">
-                Following
-              </ThemedText>
-              <Pressable
-                onPress={() => router.push('/follow-picker')}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel="Find more artists and venues to follow"
-                style={({ pressed }) => pressed && styles.pressed}>
-                <ThemedText type="smallBold" style={{ color: theme.accentText }}>
-                  Find more
-                </ThemedText>
-              </Pressable>
-            </View>
-            <View style={styles.followList}>
-              {follows.map((follow) => (
-                <ThemedView
-                  key={`${follow.kind}:${follow.key}`}
-                  type="backgroundElement"
-                  style={styles.followRow}>
-                  <View style={styles.followLabel}>
-                    <ThemedText type="default" numberOfLines={1}>
-                      {follow.name}
-                    </ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {follow.kind === 'artist' ? 'Artist' : 'Venue'}
-                    </ThemedText>
-                  </View>
-                  <Pressable
-                    onPress={() => toggleFollow(follow.kind, follow.name)}
-                    disabled={isFollowPending(follow.kind, follow.name)}
-                    hitSlop={8}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Unfollow ${follow.name}`}
-                    style={({ pressed }) => pressed && styles.pressed}>
-                    <ThemedText type="smallBold" style={{ color: theme.accentText }}>
-                      {isFollowing(follow.kind, follow.name) ? 'Unfollow' : 'Follow'}
-                    </ThemedText>
-                  </Pressable>
-                </ThemedView>
-              ))}
-            </View>
-          </ThemedView>
-        )}
-
-        {/* Only shown once something is followed. Alert settings for a person
-            who follows nothing are settings for notifications that could never
-            fire — the same reasoning that hides the Following filter. */}
-        {session && follows.length > 0 && (
-          <ThemedView style={styles.savedSection}>
-            <ThemedText type="eyebrow" themeColor="textSecondary">
-              Alerts
-            </ThemedText>
-            {/* Grouped by topic, not by delivery mechanism. "Tell me about new
-                shows" is a decision someone can make; "enable push" is not.
-                Being able to switch off one kind is what stops people switching
-                off every kind, which is the single biggest lever on whether
-                notifications survive past the first month. */}
-            <View style={styles.followList}>
-              <AlertToggle
-                label="New shows"
-                detail="When something you follow is announced."
-                value={prefs.justAnnounced}
-                onChange={(value) => setPref('justAnnounced', value)}
-              />
-              <AlertToggle
-                label="Doors tomorrow"
-                detail="A reminder the day before a show you saved."
-                value={prefs.doorsTomorrow}
-                onChange={(value) => setPref('doorsTomorrow', value)}
-              />
-              <AlertToggle
-                label="Weekly roundup"
-                detail="What's on this week in your city."
-                value={prefs.weeklyDigest}
-                onChange={(value) => setPref('weeklyDigest', value)}
-              />
-            </View>
-          </ThemedView>
-        )}
-
-      {isSupabaseConfigured && !isLoading && session && (
-        <ThemedView style={styles.savedSection}>
-          <View style={styles.savedHeadingRow}>
-            <ThemedText type="eyebrow" themeColor="textSecondary">
-              {savedScope === 'upcoming' ? 'Saved Concerts' : 'Past Concerts'}
-            </ThemedText>
-            {(pastConcerts.length > 0 || savedScope === 'past') && (
-              <Pressable
-                onPress={() => setSavedScope(savedScope === 'upcoming' ? 'past' : 'upcoming')}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  savedScope === 'upcoming'
-                    ? `Show ${pastConcerts.length} past concerts`
-                    : 'Show upcoming concerts'
-                }
-                style={({ pressed }) => pressed && styles.pressed}>
-                <ThemedText type="smallBold" style={{ color: theme.accentText }}>
-                  {savedScope === 'upcoming' ? `Past (${pastConcerts.length})` : 'Upcoming'}
-                </ThemedText>
-              </Pressable>
-            )}
-          </View>
-          {savedConcertsError && (
-            <ThemedText type="small" themeColor="textSecondary">
-              {savedConcertsError}
-            </ThemedText>
-          )}
-          {isSavedConcertsLoading ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.savedRow}>
-              <SkeletonCard width={SAVED_CARD_WIDTH} />
-              <SkeletonCard width={SAVED_CARD_WIDTH} />
-            </ScrollView>
-          ) : savedConcerts.length === 0 ? (
-            <ThemedText type="small" themeColor="textSecondary" style={styles.centerText}>
-              No saved concerts yet. Tap the heart on a show in Explore or List to save it.
-            </ThemedText>
-          ) : (
-            /* The one genuinely unbounded list in the app — saved-concerts has
-               no query limit, so a heavy user's row grows without ceiling.
-               Horizontal FlatList inside the vertical ScreenScaffold scroller
-               is fine: the nesting warning is about two scrollers sharing an
-               axis, and these are perpendicular. Card width is fixed here, so
-               getItemLayout applies and scrolling skips measurement entirely. */
-            <FlatList
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.savedRow}
-              data={savedScope === 'upcoming' ? savedConcerts : pastConcerts}
-              keyExtractor={keyExtractor}
-              getItemLayout={getSavedItemLayout}
-              renderItem={renderSavedConcert}
-              initialNumToRender={4}
-              windowSize={5}
+          <View style={styles.menuGroup}>
+            <SettingsRow
+              label="Following"
+              value={follows.length > 0 ? String(follows.length) : undefined}
+              onPress={() => router.push('/settings/following')}
+              showDivider={false}
             />
-          )}
+            <SettingsRow
+              label="Alerts"
+              value={follows.length === 0 ? 'Follow something first' : undefined}
+              onPress={() => router.push('/settings/alerts')}
+            />
+            <SettingsRow
+              label="Saved Concerts"
+              value={savedConcerts.length > 0 ? String(savedConcerts.length) : undefined}
+              onPress={() => router.push('/settings/saved')}
+            />
+            {/* Only offered once there is something in it. A row that always
+                opens an empty screen teaches people not to tap rows. */}
+            {pastConcerts.length > 0 && (
+              <SettingsRow
+                label="Past Events"
+                value={String(pastConcerts.length)}
+                onPress={() => router.push({ pathname: '/settings/saved', params: { scope: 'past' } })}
+              />
+            )}
+            <SettingsRow
+              label="Default City"
+              value={CITIES.find((city) => city.id === (profile?.defaultCity ?? CITIES[0].id))?.label}
+              onPress={() => router.push('/settings/city')}
+            />
+          </View>
         </ThemedView>
       )}
 
@@ -544,6 +361,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     justifyContent: 'center',
   },
+  // One rounded block containing the rows, so they read as a single grouped
+  // list rather than separate cards -- the divider inside SettingsRow does the
+  // separating.
+  menuGroup: {
+    marginHorizontal: Spacing.four,
+    borderRadius: Radius.card,
+    overflow: 'hidden',
+    backgroundColor: Colors.dark.backgroundElement,
+  },
   savedSection: {
     gap: Spacing.two,
     marginTop: Spacing.four,
@@ -653,47 +479,3 @@ const styles = StyleSheet.create({
   },
 });
 
-/**
- * One alert setting: label, one line of detail, and a switch.
- *
- * The label sits outside the control rather than inside it, which is both the
- * accessibility convention and what makes the row scannable — a column of bare
- * switches forces you to read every line to find the one you came for.
- *
- * The detail line says what the alert *is*, not what the switch does. "When
- * something you follow is announced" tells you whether you want it; "Enable
- * new show notifications" only restates the label.
- */
-function AlertToggle({
-  label,
-  detail,
-  value,
-  onChange,
-}: {
-  label: string;
-  detail: string;
-  value: boolean;
-  onChange: (value: boolean) => void;
-}) {
-  const theme = useTheme();
-  return (
-    <ThemedView type="backgroundElement" style={styles.followRow}>
-      <View style={styles.followLabel}>
-        <ThemedText type="default">{label}</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          {detail}
-        </ThemedText>
-      </View>
-      <Switch
-        value={value}
-        onValueChange={onChange}
-        accessibilityLabel={label}
-        // The platform switch rather than a custom control: it already carries
-        // the right role, the right gesture, and the right size on both
-        // platforms, and people already know what it means.
-        trackColor={{ false: theme.border, true: theme.accent }}
-        thumbColor={theme.accentInk}
-      />
-    </ThemedView>
-  );
-}
