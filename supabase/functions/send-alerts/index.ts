@@ -39,26 +39,46 @@ type DueRow = {
   concert_names: string[];
   alert_count: number;
   image_url: string | null;
+  reason: 'just_announced' | 'doors_tomorrow' | 'last_chance';
   tokens: string[];
 };
 
 /**
  * What the notification actually says.
  *
- * One show is named outright, because the name is the entire reason to open
- * the app. Several are counted instead and the soonest named, since a title
- * listing four acts is truncated by the OS anyway and reads as noise on a lock
- * screen.
+ * Worded per reason, because a reminder that reads like an announcement is how
+ * people learn to stop trusting notifications. One show is named outright --
+ * the name is the entire reason to open the app -- while several are counted
+ * and the soonest named, since a title listing four acts is truncated by the
+ * OS anyway and reads as noise on a lock screen.
  */
 function composeMessage(row: DueRow) {
   const [first] = row.concert_names;
-  if (row.alert_count === 1) {
-    return { title: 'New show announced', body: `${first} just went on sale.` };
+  const others = row.alert_count - 1;
+
+  if (row.reason === 'doors_tomorrow') {
+    return row.alert_count === 1
+      ? { title: 'Tomorrow night', body: `${first}. Doors are tomorrow.` }
+      : {
+          title: `${row.alert_count} shows tomorrow`,
+          body: `${first} and ${others} more you saved.`,
+        };
   }
-  return {
-    title: `${row.alert_count} new shows`,
-    body: `${first} and ${row.alert_count - 1} more from artists and venues you follow.`,
-  };
+
+  if (row.reason === 'last_chance') {
+    // Names the deadline rather than nagging. The interest is already proven
+    // by the follow; what they may not have is the date.
+    return row.alert_count === 1
+      ? { title: 'Last chance', body: `${first} is tomorrow and you haven't saved it.` }
+      : { title: 'Last chance', body: `${first} and ${others} more you follow are on tomorrow.` };
+  }
+
+  return row.alert_count === 1
+    ? { title: 'New show announced', body: `${first} just went on sale.` }
+    : {
+        title: `${row.alert_count} new shows`,
+        body: `${first} and ${others} more from artists and venues you follow.`,
+      };
 }
 
 function json(body: unknown, status = 200) {
@@ -84,6 +104,11 @@ Deno.serve(async (req) => {
   }
 
   const supabase = createClient(supabaseUrl, serviceKey);
+
+  // Queued immediately before selecting, so a reminder for tomorrow is never
+  // a send cycle late. Idempotent by primary key, so running this hourly
+  // alongside the send costs nothing after the first time each day.
+  await supabase.rpc('queue_tomorrow_alerts');
 
   const { data: due, error } = await supabase.rpc('alerts_due');
   if (error) return json({ error: error.message }, 500);

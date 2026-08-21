@@ -78,9 +78,13 @@ export default function AlertsSettingsScreen() {
           value={prefs.justAnnounced}
           onChange={(value) => setPref('justAnnounced', value)}
         />
+        {/* One switch for both day-before reminders — a show you saved, and a
+            show you follow but haven't. They answer the same question, and
+            splitting them would add a toggle without adding a decision anybody
+            wants to make separately. */}
         <AlertToggle
-          label="Doors tomorrow"
-          detail="A reminder the day before a show you saved."
+          label="Happening tomorrow"
+          detail="Shows you saved, and last chances from acts you follow."
           value={prefs.doorsTomorrow}
           onChange={(value) => setPref('doorsTomorrow', value)}
         />
