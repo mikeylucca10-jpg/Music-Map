@@ -98,6 +98,21 @@ function followKey(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+/**
+ * Smallest image that still covers a notification thumbnail.
+ *
+ * Deliberately not the same target as the app's card art: a push thumbnail
+ * renders tiny, and Ticketmaster's array is unsorted, so the largest source
+ * would send a 2426px original to fill a few hundred pixels.
+ */
+function pickPosterUrl(images: { url: string; width?: number }[] | undefined) {
+  if (!images?.length) return null;
+  const sufficient = images
+    .filter((image) => (image.width ?? 0) >= 640)
+    .sort((a, b) => (a.width ?? 0) - (b.width ?? 0))[0];
+  return (sufficient ?? images[0]).url ?? null;
+}
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -195,6 +210,9 @@ Deno.serve(async (req) => {
           : null,
         venue_key: followKey(venue.name),
         starts_at: startDateTime,
+        // Carried so a notification can show the poster; rich pushes measure
+        // markedly higher open rates than plain text.
+        image_url: pickPosterUrl(event.images),
       });
     }
 

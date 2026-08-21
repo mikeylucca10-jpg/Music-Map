@@ -38,6 +38,7 @@ type DueRow = {
   concert_ids: string[];
   concert_names: string[];
   alert_count: number;
+  image_url: string | null;
   tokens: string[];
 };
 
@@ -99,6 +100,12 @@ Deno.serve(async (req) => {
       title,
       body,
       sound: 'default',
+      // Rich notifications carrying a thumbnail measure up to 56% higher open
+      // rates than plain text, and this app has poster art for nearly every
+      // show. Android renders it out of the box; iOS ignores it until a
+      // Notification Service Extension exists, so it costs nothing there and
+      // lights up later without a second change.
+      ...(row.image_url ? { richContent: { image: row.image_url } } : {}),
       // Read by the app when a notification is opened, so the tap can land on
       // the show itself rather than dumping someone on the home screen.
       data: { concertIds: row.concert_ids },
