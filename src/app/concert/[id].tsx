@@ -19,6 +19,7 @@ import { FollowChip } from '@/components/follow-chip';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { useAddToCalendar } from '@/hooks/use-add-to-calendar';
 import { useApplyDefaultCity } from '@/hooks/use-apply-default-city';
 import { useAuth } from '@/hooks/use-auth';
 import { useEdmConcerts } from '@/hooks/use-edm-concerts';
@@ -69,6 +70,7 @@ export default function ConcertScreen() {
     session?.user.id ?? null,
   );
   const { coords: userLocation } = useUserLocation();
+  const { state: calendarState, addToCalendar } = useAddToCalendar();
   const { isFollowing, isFollowPending, toggleFollow } = useFollows(session?.user.id ?? null);
 
   // Prefer the live feed: it carries coordinates, which the saved copy does
@@ -271,6 +273,49 @@ export default function ConcertScreen() {
                 <ThemedText themeColor="textSecondary">›</ThemedText>
               </ThemedView>
             </Pressable>
+          )}
+
+          {/* Sits beside Get Directions because both are the same kind of
+              thing: taking this show out of the app and into something the
+              person already uses to run their life. Saving is a bookmark
+              nothing reminds you of; a calendar entry surfaces itself on the
+              day, in the app they already trust for that. */}
+          <Pressable
+            onPress={() => addToCalendar(concert)}
+            disabled={calendarState === 'working'}
+            accessibilityRole="button"
+            accessibilityLabel={
+              calendarState === 'added'
+                ? `${concert.name} added to your calendar`
+                : `Add ${concert.name} to your calendar`
+            }
+            style={({ pressed }) => [
+              styles.directionsWrapper,
+              (pressed || calendarState === 'working') && styles.pressed,
+            ]}>
+            <ThemedView type="backgroundSelected" style={styles.directionsButton}>
+              <ThemedText type="default">
+                {calendarState === 'added'
+                  ? 'Added to Calendar'
+                  : calendarState === 'working'
+                    ? 'Opening Calendar…'
+                    : 'Add to Calendar'}
+              </ThemedText>
+              <ThemedText themeColor="textSecondary">
+                {calendarState === 'added' ? '✓' : '›'}
+              </ThemedText>
+            </ThemedView>
+          </Pressable>
+
+          {/* Only ever shown after a real failure. A denied permission is a
+              deliberate answer rather than an error, so it is stated plainly
+              and points at the one place that can undo it. */}
+          {(calendarState === 'denied' || calendarState === 'failed') && (
+            <ThemedText type="small" themeColor="textSecondary">
+              {calendarState === 'denied'
+                ? 'Calendar access is off. You can turn it on for Music Map in your device settings.'
+                : "Couldn't open your calendar. The ticket link still has the date."}
+            </ThemedText>
           )}
 
           <ThemedText type="eyebrow" themeColor="textSecondary" style={styles.sectionHeading}>
