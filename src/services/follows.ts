@@ -48,13 +48,30 @@ export async function fetchFollows(userId: string): Promise<Follow[]> {
   ];
 }
 
-export async function addFollow(userId: string, kind: FollowKind, name: string): Promise<void> {
+/**
+ * @param artistId the source's stable id, when the caller has one. Stored
+ *   alongside the name rather than instead of it: an id makes matching exact
+ *   where both sides have one, and the name still has to work for the ~20% of
+ *   events with no attraction attached, and for a second source whose ids will
+ *   never equal Ticketmaster's.
+ */
+export async function addFollow(
+  userId: string,
+  kind: FollowKind,
+  name: string,
+  artistId?: string,
+): Promise<void> {
   const { table, keyCol, nameCol } = TABLE[kind];
   const { error } = await supabase
     .from(table)
     // upsert rather than insert: following something already followed should be
     // a no-op, not a primary-key violation surfaced as an error to the user.
-    .upsert({ user_id: userId, [keyCol]: followKey(name), [nameCol]: name });
+    .upsert({
+      user_id: userId,
+      [keyCol]: followKey(name),
+      [nameCol]: name,
+      ...(kind === 'artist' && artistId ? { artist_id: artistId } : {}),
+    });
   if (error) throw new Error(error.message);
 }
 

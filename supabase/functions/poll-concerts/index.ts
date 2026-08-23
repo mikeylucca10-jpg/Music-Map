@@ -208,6 +208,8 @@ Deno.serve(async (req) => {
         artist_key: event._embedded?.attractions?.[0]?.name
           ? followKey(event._embedded.attractions[0].name)
           : null,
+        // The stable id, so a follow can match exactly rather than by name.
+        artist_id: event._embedded?.attractions?.[0]?.id ?? null,
         venue_key: followKey(venue.name),
         starts_at: startDateTime,
         // Carried so a notification can show the poster; rich pushes measure

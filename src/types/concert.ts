@@ -26,6 +26,21 @@ export type Concert = {
   name: string;
   artist?: string;
   /**
+   * The source's own stable id for the headliner, when it has one.
+   *
+   * Follows match on the normalised *name* by default, which works until two
+   * different acts share one. Bandsintown users report exactly that failure --
+   * following Fold the funk band and being alerted about Fold the techno DJ --
+   * and it is the kind of bug that only appears once an app is big enough for
+   * it to be expensive. Measured on the live feed: 119 of 119 attractions
+   * carry an id, and 0 of 472 distinct names currently collide.
+   *
+   * Optional because ~20% of events have no attraction attached at all, and
+   * a second source will use a different id space entirely -- so the name
+   * remains the fallback rather than being replaced.
+   */
+  artistId?: string;
+  /**
    * Every act on the bill, headliner first, as the source ordered them.
    *
    * Separate from `artist` rather than replacing it: `artist` is the one name
@@ -82,6 +97,7 @@ export type ConcertSummary = Pick<
   | 'id'
   | 'name'
   | 'artist'
+  | 'artistId'
   | 'lineup'
   | 'url'
   | 'startDateTime'

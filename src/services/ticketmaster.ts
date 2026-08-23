@@ -16,6 +16,8 @@ type TicketmasterVenue = {
 };
 
 type TicketmasterAttraction = {
+  /** Stable across listings, unlike the name. See Concert.artistId. */
+  id?: string;
   name?: string;
   classifications?: TicketmasterClassification[];
 };
@@ -339,6 +341,7 @@ function normalizeEvents(data: TicketmasterResponse): Concert[] {
       source: 'ticketmaster',
       name: event.name,
       artist: event._embedded?.attractions?.[0]?.name,
+      artistId: event._embedded?.attractions?.[0]?.id,
       // Names only. The rest of an attraction is images and classifications we
       // already read elsewhere, and storing the whole object would bloat the
       // AsyncStorage cache every card render pays to deserialise.

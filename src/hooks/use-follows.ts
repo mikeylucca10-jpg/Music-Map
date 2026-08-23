@@ -45,13 +45,21 @@ export function useFollows(userId: string | null) {
   );
 
   const toggleFollow = useCallback(
-    async (kind: FollowKind, name: string) => {
+    /**
+     * @param artistId the source's stable id, when the caller has one. Optional
+     *   because the Following list in Settings has only a name to work with —
+     *   it is unfollowing something already stored, so no id is needed there.
+     */
+    async (kind: FollowKind, name: string, artistId?: string) => {
+      // Still keyed on the name locally. The id makes *matching* exact on the
+      // server; the local key only has to be stable within one device's list,
+      // and keying it on an id nobody has for venues would need two code paths.
       const id = `${kind}:${followKey(name)}`;
       if (!userId || pending.has(id)) return;
       setPending((current) => new Set(current).add(id));
       try {
         if (followedKeys.has(id)) await removeFollow(userId, kind, name);
-        else await addFollow(userId, kind, name);
+        else await addFollow(userId, kind, name, artistId);
         await refresh();
       } finally {
         setPending((current) => {

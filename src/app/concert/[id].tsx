@@ -250,7 +250,7 @@ export default function ConcertScreen() {
                   label={concert.artist}
                   active={isFollowing('artist', concert.artist)}
                   pending={isFollowPending('artist', concert.artist)}
-                  onPress={() => toggleFollow('artist', concert.artist!)}
+                  onPress={() => toggleFollow('artist', concert.artist!, concert.artistId)}
                 />
               )}
               <FollowChip
