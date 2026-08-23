@@ -151,8 +151,10 @@ export function ConcertsFilterBar({
     canFilterByDistance && onMaxMilesChange && distanceOptions.length
       ? [
           {
+            // No explanatory note. "Within 5 miles" needs no clarifying, and a
+            // caption under a heading that already reads clearly is the kind of
+            // hedge that makes a control look unfinished.
             title: 'Distance',
-            note: 'Straight-line from where you are.',
             selectedId: maxMiles === null ? 'any' : String(maxMiles),
             onSelect: (id) => onMaxMilesChange(id === 'any' ? null : Number(id)),
             options: [
