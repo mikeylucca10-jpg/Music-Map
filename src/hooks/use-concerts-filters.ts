@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 
-import { isPointInMultiPolygon } from '@/lib/geo';
+import { getDistanceMiles, isPointInMultiPolygon } from '@/lib/geo';
 import {
   dateKeyFor,
   formatDateKeyLabel,
@@ -118,6 +118,16 @@ function venueStartHour(concert: Concert): number | null {
     return null;
   }
 }
+
+/**
+ * How far away a show can be and still count.
+ *
+ * A short list, because the useful question is coarse -- walkable, this side
+ * of town, or anywhere -- and a slider would invite precision the data does
+ * not support. Distances are straight-line: two miles across the East River
+ * is a longer trip than two miles down an avenue, and nothing here knows that.
+ */
+export const DISTANCE_OPTIONS = [1, 3, 5, 10, 25] as const;
 
 const MAX_WEEKS_AHEAD = 8;
 
@@ -253,12 +263,21 @@ export function useConcertsFilters(
   concerts: Concert[],
   city: City,
   follows: { kind: string; key: string }[] = [],
+  /**
+   * The viewer's coordinates, when they have granted location.
+   *
+   * Passed in rather than read from useUserLocation here, so this hook stays
+   * free of permission side effects -- mounting a filter hook must never be
+   * what triggers an OS dialog.
+   */
+  userLocation?: { latitude: number; longitude: number } | null,
 ) {
   const [followingOnly, setFollowingOnly] = useState(false);
   const [category, setCategory] = useState<Category>('All');
   const [boroughId, setBoroughId] = useState<string | null>(null);
   const [dateKey, setDateKey] = useState<string | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
+  const [maxMiles, setMaxMiles] = useState<number | null>(null);
 
   // Reset the borough selection and week position when the city changes
   // (e.g. NYC -> Vegas) so stale filters don't silently zero out another
@@ -425,8 +444,13 @@ export function useConcertsFilters(
     // property of a show — but it is the state people most often want undone,
     // and it is the one the request specifically named ("reset to today").
     if (weekOffset !== 0) active.push({ id: 'week', label: 'This week' });
+    // Only counted while it can actually do something. A distance set before
+    // location was granted would otherwise show in the reset row as an active
+    // filter that is changing nothing.
+    if (maxMiles !== null && userLocation)
+      active.push({ id: 'distance', label: `Within ${maxMiles} mi` });
     return active;
-  }, [category, selectedBorough, dateKey, followingOnly, weekOffset]);
+  }, [category, selectedBorough, dateKey, followingOnly, weekOffset, maxMiles, userLocation]);
 
   const filteredConcerts = useMemo(() => {
     // Deliberately not a dependency: a fresh Date() here would otherwise
@@ -438,6 +462,19 @@ export function useConcertsFilters(
       if (followingOnly && !matchesFollows(concert, followedArtistKeys, followedVenueKeys))
         return false;
       if (selectedBorough && !isWithinBorough(concert, selectedBorough)) return false;
+      // Only applied when there is a location to measure from. Without one the
+      // filter is silently dropped rather than returning nothing — a control
+      // that empties the list because a permission is missing looks like the
+      // app is broken, not like a filter is on.
+      if (maxMiles !== null && userLocation) {
+        const miles = getDistanceMiles(
+          userLocation.latitude,
+          userLocation.longitude,
+          concert.latitude,
+          concert.longitude,
+        );
+        if (miles > maxMiles) return false;
+      }
       if (dateKey)
         return getConcertDateKey(new Date(concert.startDateTime), concert.timezone ?? city.timezone) === dateKey;
       return isWithinActiveWindow(concert, category, weekOffset, now);
@@ -454,6 +491,8 @@ export function useConcertsFilters(
     // Only the fallback for concerts that carry no zone of their own, but it
     // still changes the answer when the city changes, so it belongs here.
     city.timezone,
+    maxMiles,
+    userLocation,
   ]);
 
   return {
@@ -497,6 +536,10 @@ export function useConcertsFilters(
      * claiming there are no shows when 85 of them are loaded.
      */
     hasAnyConcerts: concerts.length > 0,
+    maxMiles,
+    setMaxMiles,
+    /** Whether the distance control can do anything — see userLocation. */
+    canFilterByDistance: Boolean(userLocation),
     activeFilters,
     /**
      * Back to the default view: this week, every category, no borough, no
@@ -512,6 +555,7 @@ export function useConcertsFilters(
       setDateKey(null);
       setWeekOffset(0);
       setFollowingOnly(false);
+      setMaxMiles(null);
     },
     filteredConcerts,
   };

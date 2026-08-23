@@ -11,7 +11,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
 import { useApplyDefaultCity } from '@/hooks/use-apply-default-city';
 import { useAuth } from '@/hooks/use-auth';
-import { useConcertsFilters } from '@/hooks/use-concerts-filters';
+import { DISTANCE_OPTIONS, useConcertsFilters } from '@/hooks/use-concerts-filters';
 import { useEdmConcerts } from '@/hooks/use-edm-concerts';
 import { useFollows } from '@/hooks/use-follows';
 import { useProfile } from '@/hooks/use-profile';
@@ -30,10 +30,17 @@ export default function HomeScreen() {
   const { concerts, isLoading, error, classifiedError, refresh } = useEdmConcerts(city);
   const { session } = useAuth();
   const { follows } = useFollows(session?.user.id ?? null);
+  // Read-only here — this screen doesn't render the permission prompt (only
+  // Explore does), it just picks up the coords if already granted. Declared
+  // before useConcertsFilters, which takes them for the distance filter.
+  const { coords: userLocation } = useUserLocation();
   const {
     category,
     setCategory,
     categories,
+    maxMiles,
+    setMaxMiles,
+    canFilterByDistance,
     boroughsByCount,
     boroughCounts,
     selectedBoroughId,
@@ -56,15 +63,12 @@ export default function HomeScreen() {
     activeFilters,
     resetFilters,
     filteredConcerts,
-  } = useConcertsFilters(concerts, city, follows);
+  } = useConcertsFilters(concerts, city, follows, userLocation);
   const theme = useTheme();
   const { profile } = useProfile(session?.user.id ?? null);
   useApplyDefaultCity(profile, setCity);
   const { isSaved, isSavePending, toggleSave } = useSavedConcerts(session?.user.id ?? null);
 
-  // Read-only here — this screen doesn't render the permission prompt (only
-  // Explore does), it just picks up the coords if already granted.
-  const { coords: userLocation } = useUserLocation();
 
   // Hoisted so every row shares one function identity. Each card previously got
   // a freshly minted arrow on every render, which would defeat ConcertListCard's
@@ -96,6 +100,10 @@ export default function HomeScreen() {
         onCityChange={setCity}
         cities={CITIES}
         selectedBoroughId={selectedBoroughId}
+        maxMiles={maxMiles}
+        onMaxMilesChange={setMaxMiles}
+        distanceOptions={DISTANCE_OPTIONS}
+        canFilterByDistance={canFilterByDistance}
         boroughsByCount={boroughsByCount}
         boroughCounts={boroughCounts}
         onBoroughChange={setBoroughId}

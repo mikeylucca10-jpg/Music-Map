@@ -11,7 +11,7 @@ import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Radius, Spacing } from '@/constants/theme';
 import { useApplyDefaultCity } from '@/hooks/use-apply-default-city';
 import { useAuth } from '@/hooks/use-auth';
-import { useConcertsFilters } from '@/hooks/use-concerts-filters';
+import { DISTANCE_OPTIONS, useConcertsFilters } from '@/hooks/use-concerts-filters';
 import { useEdmConcerts } from '@/hooks/use-edm-concerts';
 import { useProfile } from '@/hooks/use-profile';
 import { useTheme } from '@/hooks/use-theme';
@@ -22,10 +22,24 @@ export default function ExploreScreen() {
   const safeAreaInsets = useSafeAreaInsets();
   const [city, setCity] = useState(CITIES[0]);
   const { concerts, isLoading, error, refresh } = useEdmConcerts(city);
+  // Declared before useConcertsFilters, which now takes the coordinates for
+  // the distance filter.
+  const {
+    status: locationStatus,
+    coords: userLocation,
+    hasPrompted: hasPromptedForLocation,
+    canAskAgain,
+    unavailableReason,
+    requestLocation,
+    declineLocation,
+  } = useUserLocation();
   const {
     category,
     setCategory,
     categories,
+    maxMiles,
+    setMaxMiles,
+    canFilterByDistance,
     boroughsByCount,
     boroughCounts,
     selectedBoroughId,
@@ -42,21 +56,12 @@ export default function ExploreScreen() {
     activeFilters,
     resetFilters,
     filteredConcerts,
-  } = useConcertsFilters(concerts, city);
+  } = useConcertsFilters(concerts, city, [], userLocation);
 
   const { session } = useAuth();
   const { profile } = useProfile(session?.user.id ?? null);
   useApplyDefaultCity(profile, setCity);
   const theme = useTheme();
-  const {
-    status: locationStatus,
-    coords: userLocation,
-    hasPrompted: hasPromptedForLocation,
-    canAskAgain,
-    unavailableReason,
-    requestLocation,
-    declineLocation,
-  } = useUserLocation();
 
   // The soft-ask used to slide up the instant the stored choice resolved, which
   // meant a sheet covering the screen before the map had painted — an ambush
@@ -116,6 +121,10 @@ export default function ExploreScreen() {
           onCityChange={setCity}
           cities={CITIES}
           selectedBoroughId={selectedBoroughId}
+          maxMiles={maxMiles}
+          onMaxMilesChange={setMaxMiles}
+          distanceOptions={DISTANCE_OPTIONS}
+          canFilterByDistance={canFilterByDistance}
           boroughsByCount={boroughsByCount}
           boroughCounts={boroughCounts}
           onBoroughChange={setBoroughId}

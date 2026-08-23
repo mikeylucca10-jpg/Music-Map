@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { DatePickerSheet } from '@/components/date-picker-sheet';
 import { NightDensityStrip, type WeekNight } from '@/components/night-density-strip';
-import { SelectSheet, type SelectOption } from '@/components/select-sheet';
+import { SelectSheet, type SelectOption, type SelectSection } from '@/components/select-sheet';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
@@ -42,6 +42,11 @@ type ConcertsFilterBarProps = {
   /** Boroughs ordered busiest-first, with their counts — see useConcertsFilters. */
   boroughsByCount?: City['boroughs'];
   boroughCounts?: Map<string, number>;
+  /** Distance filter — omitted entirely when there is no location to measure from. */
+  maxMiles?: number | null;
+  onMaxMilesChange?: (miles: number | null) => void;
+  distanceOptions?: readonly number[];
+  canFilterByDistance?: boolean;
   /** The visible week's seven nights with per-night show counts, for the strip. */
   weekNights?: WeekNight[];
 };
@@ -73,6 +78,10 @@ export function ConcertsFilterBar({
   onResetFilters,
   boroughsByCount,
   boroughCounts,
+  maxMiles = null,
+  onMaxMilesChange,
+  distanceOptions = [],
+  canFilterByDistance = false,
 }: ConcertsFilterBarProps) {
   const theme = useTheme();
 
@@ -127,6 +136,35 @@ export function ConcertsFilterBar({
   // real field or a real clock, so there is nothing to warn about -- the four
   // that needed a disclaimer were the four that did not work.
   const categoryOptions: SelectOption[] = categories.map((item) => ({ id: item, label: item }));
+
+  /**
+   * Distance rides in the Filters sheet as its own section.
+   *
+   * Omitted entirely rather than disabled when location has not been granted:
+   * a distance control with nothing to measure from can only ever mislead, and
+   * an inert row invites a tap that does nothing.
+   *
+   * "Any distance" leads so the filter can be cleared from inside the sheet
+   * that set it, rather than only from the reset row.
+   */
+  const distanceSections: SelectSection[] | undefined =
+    canFilterByDistance && onMaxMilesChange && distanceOptions.length
+      ? [
+          {
+            title: 'Distance',
+            note: 'Straight-line from where you are.',
+            selectedId: maxMiles === null ? 'any' : String(maxMiles),
+            onSelect: (id) => onMaxMilesChange(id === 'any' ? null : Number(id)),
+            options: [
+              { id: 'any', label: 'Any distance' },
+              ...distanceOptions.map((miles) => ({
+                id: String(miles),
+                label: `Within ${miles} ${miles === 1 ? 'mile' : 'miles'}`,
+              })),
+            ],
+          },
+        ]
+      : undefined;
 
   return (
     <View style={styles.container}>
@@ -270,6 +308,7 @@ export function ConcertsFilterBar({
         options={categoryOptions}
         selectedId={category}
         onSelect={(id) => onCategoryChange(id as Category)}
+        sections={distanceSections}
         onClose={() => setOpenSheet(null)}
       />
 

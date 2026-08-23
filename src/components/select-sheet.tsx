@@ -30,6 +30,28 @@ export type SelectOption = {
   selfLabel?: string;
 };
 
+/**
+ * A second, independently-selected group in the same sheet.
+ *
+ * Distance is not another category — you want "21+" *and* "within 5 miles", not
+ * one or the other — so it cannot be another row in a single-select list. It
+ * also cannot be another pill: the row measured 332pt of a 361pt budget at
+ * 393pt with four pills, and a fifth pushes it off-screen while horizontal
+ * scrolling was ruled out deliberately.
+ *
+ * So the sheet grows a second section instead. Each section keeps its own
+ * selection, which is the only shape that lets two independent filters share
+ * one surface without pretending to be the same question.
+ */
+export type SelectSection = {
+  title: string;
+  options: SelectOption[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  /** Shown under the heading when the section needs a word of explanation. */
+  note?: string;
+};
+
 type SelectSheetProps = {
   visible: boolean;
   title: string;
@@ -37,6 +59,8 @@ type SelectSheetProps = {
   selectedId: string | null;
   onSelect: (id: string) => void;
   onClose: () => void;
+  /** Rendered below the main list, each with its own independent selection. */
+  sections?: SelectSection[];
 };
 
 /**
@@ -68,6 +92,7 @@ export function SelectSheet({
   selectedId,
   onSelect,
   onClose,
+  sections,
 }: SelectSheetProps) {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
@@ -205,6 +230,58 @@ export function SelectSheet({
               </Pressable>
             );
           })}
+
+          {/* Only at the top level. A drilled-in sub-list is answering a
+              different question, and an unrelated section beneath it would make
+              the back button ambiguous about what it returns to. */}
+          {!drilled &&
+            sections?.map((section) => (
+              <View key={section.title}>
+                <View style={styles.sectionHeading}>
+                  <ThemedText type="eyebrow" themeColor="textSecondary">
+                    {section.title}
+                  </ThemedText>
+                  {section.note ? (
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {section.note}
+                    </ThemedText>
+                  ) : null}
+                </View>
+                {section.options.map((option) => {
+                  const selected = option.id === section.selectedId;
+                  return (
+                    <Pressable
+                      key={option.id}
+                      onPress={() => {
+                        section.onSelect(option.id);
+                        close();
+                      }}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      // Names the section too, so a screen reader hears "Distance,
+                      // within 5 miles" rather than a bare "within 5 miles" with
+                      // no idea which control it belongs to.
+                      accessibilityLabel={`${section.title}, ${option.label}`}
+                      style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+                      <View style={styles.rowLabel}>
+                        <ThemedText
+                          type={selected ? 'smallBold' : 'default'}
+                          style={selected ? { color: theme.accentText } : undefined}>
+                          {option.label}
+                        </ThemedText>
+                      </View>
+                      {selected ? (
+                        <ThemedText
+                          allowFontScaling={false}
+                          style={[styles.check, { color: theme.accentText }]}>
+                          ✓
+                        </ThemedText>
+                      ) : null}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ))}
         </ScrollView>
       </ThemedView>
     </Modal>
@@ -236,6 +313,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   closeIcon: { fontSize: 18 },
+  // Space above separates the section from the list it follows; the label
+  // aligns with the rows rather than the sheet edge.
+  sectionHeading: {
+    gap: Spacing.half,
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.four,
+    paddingBottom: Spacing.two,
+  },
   backRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   row: {
     flexDirection: 'row',
