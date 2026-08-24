@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { PanResponder, Pressable, StyleSheet, View } from 'react-native';
 
+import { StepperButton } from '@/components/stepper-button';
 import { ThemedText } from '@/components/themed-text';
 import { Fonts, MinTouchTarget, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -81,41 +82,23 @@ export function NightDensityStrip({
   return (
     <View style={[styles.container, { backgroundColor: theme.surfaceRaised }]}>
       <View style={styles.header}>
-        <Pressable
+        <StepperButton
+          direction="prev"
           onPress={onPrevWeek}
           disabled={!canGoPrevWeek}
-          hitSlop={12}
-          accessibilityRole="button"
           accessibilityLabel="Previous week"
-          accessibilityState={{ disabled: !canGoPrevWeek }}
-          style={({ pressed }) => [styles.chevron, pressed && styles.pressed]}>
-          <ThemedText
-            type="smallBold"
-            themeColor={canGoPrevWeek ? 'text' : 'textSecondary'}
-            style={!canGoPrevWeek && styles.disabled}>
-            ‹
-          </ThemedText>
-        </Pressable>
+        />
 
         <ThemedText type="eyebrow" themeColor="textSecondary">
           {weekLabel}
         </ThemedText>
 
-        <Pressable
+        <StepperButton
+          direction="next"
           onPress={onNextWeek}
           disabled={!canGoNextWeek}
-          hitSlop={12}
-          accessibilityRole="button"
           accessibilityLabel="Next week"
-          accessibilityState={{ disabled: !canGoNextWeek }}
-          style={({ pressed }) => [styles.chevron, pressed && styles.pressed]}>
-          <ThemedText
-            type="smallBold"
-            themeColor={canGoNextWeek ? 'text' : 'textSecondary'}
-            style={!canGoNextWeek && styles.disabled}>
-            ›
-          </ThemedText>
-        </Pressable>
+        />
       </View>
 
       <View style={styles.nightsRow} {...panResponder.panHandlers}>
@@ -221,10 +204,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.two,
-  },
-  chevron: {
-    minWidth: Spacing.four,
-    alignItems: 'center',
   },
   nightsRow: {
     flexDirection: 'row',

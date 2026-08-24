@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { StepperButton } from '@/components/stepper-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Radius, Spacing } from '@/constants/theme';
@@ -155,35 +156,19 @@ export function DatePickerSheet({
           {/* "‹" alone reads as a punctuation character to a screen reader, so
               each arrow states the month it moves to rather than a bare
               "previous"/"next". */}
-          <Pressable
+          <StepperButton
+            direction="prev"
             onPress={() => goToMonth(-1)}
             disabled={!canGoPrev}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !canGoPrev }}
-            accessibilityLabel={`Previous month, ${MONTH_LABEL_FORMATTER.format(new Date(viewYear, viewMonth - 1, 1))}`}>
-            <ThemedText
-              type="subtitle"
-              themeColor={canGoPrev ? 'text' : 'textSecondary'}
-              style={!canGoPrev && styles.disabled}>
-              ‹
-            </ThemedText>
-          </Pressable>
+            accessibilityLabel={`Previous month, ${MONTH_LABEL_FORMATTER.format(new Date(viewYear, viewMonth - 1, 1))}`}
+          />
           <ThemedText type="subtitle">{MONTH_LABEL_FORMATTER.format(new Date(viewYear, viewMonth, 1))}</ThemedText>
-          <Pressable
+          <StepperButton
+            direction="next"
             onPress={() => goToMonth(1)}
             disabled={!canGoNext}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !canGoNext }}
-            accessibilityLabel={`Next month, ${MONTH_LABEL_FORMATTER.format(new Date(viewYear, viewMonth + 1, 1))}`}>
-            <ThemedText
-              type="subtitle"
-              themeColor={canGoNext ? 'text' : 'textSecondary'}
-              style={!canGoNext && styles.disabled}>
-              ›
-            </ThemedText>
-          </Pressable>
+            accessibilityLabel={`Next month, ${MONTH_LABEL_FORMATTER.format(new Date(viewYear, viewMonth + 1, 1))}`}
+          />
         </View>
 
         <View style={styles.weekdayRow}>
