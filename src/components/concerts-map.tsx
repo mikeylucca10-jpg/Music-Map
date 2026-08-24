@@ -70,7 +70,21 @@ export function ConcertsMap({ concerts, city, onSelectConcert, userLocation }: C
   // The blue dot is unaffected: it comes from isMyLocationEnabled above, not
   // from this button. What goes with the button is the tap-to-recentre
   // shortcut, which nothing else currently replaces.
-  const uiSettings = { myLocationButtonEnabled: false };
+  //
+  // Every drawn control is off, not just the location arrow. The compass is
+  // also an arrow — a needle, shown only once the map has been rotated, which
+  // is why it appears to come and go — and the scale bar arrives on zoom.
+  // Both land in the same corners. Turning off one at a time means finding the
+  // next one the same way, from a screenshot, so they all go together.
+  //
+  // Only *chrome* is disabled. togglePitchEnabled is deliberately left alone:
+  // it governs whether the user may change the pitch, so it is a gesture
+  // permission rather than something the map draws.
+  const uiSettings = {
+    myLocationButtonEnabled: false,
+    compassEnabled: false,
+    scaleBarEnabled: false,
+  };
 
   if (Platform.OS === 'android') {
     return (
