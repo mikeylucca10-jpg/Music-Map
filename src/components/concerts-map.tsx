@@ -57,35 +57,6 @@ export function ConcertsMap({ concerts, city, onSelectConcert, userLocation }: C
   // permission, rather than expo-maps triggering its own separate prompt.
   const properties = { isMyLocationEnabled: Boolean(userLocation) };
 
-  // The native location button is the arrow the OS draws over the map, and it
-  // lands under this screen's filter bar — the reset row and the Following
-  // pill both overlap it, and the bar grows taller as filters are added, so it
-  // gets worse the more the screen is used.
-  //
-  // Turned off rather than moved because expo-maps has no way to move it:
-  // uiSettings only enables or disables. That is the same call the web map
-  // already makes for the same reason — it sets zoomControl={false} because
-  // Leaflet's +/- buttons sit in the corner the pills occupy.
-  //
-  // The blue dot is unaffected: it comes from isMyLocationEnabled above, not
-  // from this button. What goes with the button is the tap-to-recentre
-  // shortcut, which nothing else currently replaces.
-  //
-  // Every drawn control is off, not just the location arrow. The compass is
-  // also an arrow — a needle, shown only once the map has been rotated, which
-  // is why it appears to come and go — and the scale bar arrives on zoom.
-  // Both land in the same corners. Turning off one at a time means finding the
-  // next one the same way, from a screenshot, so they all go together.
-  //
-  // Only *chrome* is disabled. togglePitchEnabled is deliberately left alone:
-  // it governs whether the user may change the pitch, so it is a gesture
-  // permission rather than something the map draws.
-  const uiSettings = {
-    myLocationButtonEnabled: false,
-    compassEnabled: false,
-    scaleBarEnabled: false,
-  };
-
   if (Platform.OS === 'android') {
     return (
       <GoogleMaps.View
@@ -94,7 +65,6 @@ export function ConcertsMap({ concerts, city, onSelectConcert, userLocation }: C
         markers={markers}
         onMarkerClick={handleMarkerClick}
         properties={properties}
-        uiSettings={uiSettings}
       />
     );
   }
@@ -106,7 +76,6 @@ export function ConcertsMap({ concerts, city, onSelectConcert, userLocation }: C
       markers={markers}
       onMarkerClick={handleMarkerClick}
       properties={properties}
-      uiSettings={uiSettings}
     />
   );
 }
