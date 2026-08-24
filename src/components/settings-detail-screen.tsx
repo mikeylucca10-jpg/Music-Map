@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, MaxContentWidth, MinTouchTarget, Spacing } from '@/constants/theme';
 
 type SettingsDetailScreenProps = {
   title: string;
@@ -114,6 +114,16 @@ const styles = StyleSheet.create({
     // indented relative to the title beneath it.
     marginLeft: -Spacing.one,
     marginBottom: Spacing.one,
+    // The row was 24pt tall and leaned on hitSlop for the rest. React Native
+    // Web does not implement hitSlop on Pressable, so on web the text was the
+    // whole target — on the one control every one of these screens depends on
+    // to get back. Real height instead, so it holds everywhere.
+    minHeight: MinTouchTarget,
+    // Only as wide as the chevron and its label. Without this the row is a
+    // flex child stretched across the full width, and taps far to the right of
+    // "Settings" would go back, which reads as the screen mis-firing.
+    alignSelf: 'flex-start',
+    paddingRight: Spacing.two,
   },
   // Off-scale: one glyph optically centred against the label beside it.
   backGlyph: { fontSize: 22, lineHeight: 24 },

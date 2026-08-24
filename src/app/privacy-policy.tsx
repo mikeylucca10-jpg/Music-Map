@@ -1,5 +1,5 @@
 import { LegalBold, LegalBullet, LegalSection, LegalText } from '@/components/legal-section';
-import { ScreenScaffold } from '@/components/screen-scaffold';
+import { SettingsDetailScreen } from '@/components/settings-detail-screen';
 
 // TODO(legal): two things must happen before any public release.
 // 1. Replace CONTACT_EMAIL. App stores reject privacy policies with no working
@@ -14,7 +14,7 @@ const LAST_UPDATED = 'August 15, 2026';
 
 export default function PrivacyPolicyScreen() {
   return (
-    <ScreenScaffold title="Privacy Policy" subtitle={`Last updated ${LAST_UPDATED}`}>
+    <SettingsDetailScreen title="Privacy Policy" subtitle={`Last updated ${LAST_UPDATED}`}>
       <LegalSection heading="The short version">
         <LegalText>
           Music Map helps you find electronic music events. We store the account details you give us
@@ -123,6 +123,6 @@ export default function PrivacyPolicyScreen() {
       <LegalSection heading="Contact">
         <LegalText>Questions about this policy: {CONTACT_EMAIL}</LegalText>
       </LegalSection>
-    </ScreenScaffold>
+    </SettingsDetailScreen>
   );
 }

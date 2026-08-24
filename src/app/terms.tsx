@@ -1,5 +1,5 @@
 import { LegalBold, LegalBullet, LegalSection, LegalText } from '@/components/legal-section';
-import { ScreenScaffold } from '@/components/screen-scaffold';
+import { SettingsDetailScreen } from '@/components/settings-detail-screen';
 
 // TODO(legal): replace CONTACT_EMAIL and get this reviewed by a lawyer before
 // any public release — see the matching note in privacy-policy.tsx.
@@ -9,7 +9,7 @@ const LAST_UPDATED = 'August 15, 2026';
 
 export default function TermsScreen() {
   return (
-    <ScreenScaffold title="Terms of Service" subtitle={`Last updated ${LAST_UPDATED}`}>
+    <SettingsDetailScreen title="Terms of Service" subtitle={`Last updated ${LAST_UPDATED}`}>
       <LegalSection heading="What Music Map is">
         <LegalText>
           Music Map is a discovery tool. It gathers electronic music events happening near you and
@@ -103,6 +103,6 @@ export default function TermsScreen() {
       <LegalSection heading="Contact">
         <LegalText>Questions about these terms: {CONTACT_EMAIL}</LegalText>
       </LegalSection>
-    </ScreenScaffold>
+    </SettingsDetailScreen>
   );
 }
