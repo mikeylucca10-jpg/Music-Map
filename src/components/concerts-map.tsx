@@ -57,6 +57,21 @@ export function ConcertsMap({ concerts, city, onSelectConcert, userLocation }: C
   // permission, rather than expo-maps triggering its own separate prompt.
   const properties = { isMyLocationEnabled: Boolean(userLocation) };
 
+  // The native location button is the arrow the OS draws over the map, and it
+  // lands under this screen's filter bar — the reset row and the Following
+  // pill both overlap it, and the bar grows taller as filters are added, so it
+  // gets worse the more the screen is used.
+  //
+  // Turned off rather than moved because expo-maps has no way to move it:
+  // uiSettings only enables or disables. That is the same call the web map
+  // already makes for the same reason — it sets zoomControl={false} because
+  // Leaflet's +/- buttons sit in the corner the pills occupy.
+  //
+  // The blue dot is unaffected: it comes from isMyLocationEnabled above, not
+  // from this button. What goes with the button is the tap-to-recentre
+  // shortcut, which nothing else currently replaces.
+  const uiSettings = { myLocationButtonEnabled: false };
+
   if (Platform.OS === 'android') {
     return (
       <GoogleMaps.View
@@ -65,6 +80,7 @@ export function ConcertsMap({ concerts, city, onSelectConcert, userLocation }: C
         markers={markers}
         onMarkerClick={handleMarkerClick}
         properties={properties}
+        uiSettings={uiSettings}
       />
     );
   }
@@ -76,6 +92,7 @@ export function ConcertsMap({ concerts, city, onSelectConcert, userLocation }: C
       markers={markers}
       onMarkerClick={handleMarkerClick}
       properties={properties}
+      uiSettings={uiSettings}
     />
   );
 }
