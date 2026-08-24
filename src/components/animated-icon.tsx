@@ -9,12 +9,13 @@ import { Colors, DisplayFontFamily } from '@/constants/theme';
 /**
  * Short on purpose.
  *
- * A splash past about 1.5 seconds costs roughly 12% of users to abandonment,
- * and past three seconds more than half of new ones. This is a handshake, not
- * a brand presentation: it exists to cover the gap while fonts and the first
- * listings resolve, and it should be gone before anyone decides to wait.
+ * Guidance is blunt: one logo, one colour, and no animation past ~200ms. A
+ * splash beyond 1.5 seconds costs roughly 12% of users to abandonment, and past
+ * three seconds more than half of new ones. This is a handshake, not a brand
+ * presentation -- it covers the gap while fonts resolve and should be gone
+ * before anyone decides to wait.
  */
-const DURATION = 450;
+const DURATION = 250;
 
 /**
  * The app's own launch screen, replacing the Expo starter template's.
@@ -44,10 +45,13 @@ export function AnimatedSplashOverlay() {
   // Fades rather than moves. A splash that slides or scales draws attention to
   // itself at the exact moment attention should be moving to the content
   // behind it, and motion here delays nothing while adding nothing.
+  // Starts fading immediately rather than holding first. The previous version
+  // sat at full opacity for the opening 40%, which spent time without showing
+  // anything new — the wordmark is already on screen by then, painted by the
+  // native splash this hands off from.
   const splashKeyframe = new Keyframe({
     0: { opacity: 1 },
-    40: { opacity: 1 },
-    100: { opacity: 0, easing: Easing.out(Easing.quad) },
+    100: { opacity: 0, easing: Easing.inOut(Easing.quad) },
   });
 
   const wordmark = (
