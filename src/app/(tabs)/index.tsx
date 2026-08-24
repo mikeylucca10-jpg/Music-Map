@@ -91,7 +91,7 @@ export default function HomeScreen() {
   // No subtitle: "Live shows in New York." only restated the city pill directly
   // beneath it, and spent a line of the first screen doing so.
   return (
-    <ScreenScaffold title="Music Map">
+    <ScreenScaffold title="Music Map" onRefresh={refresh}>
       <ConcertsFilterBar
         category={category}
         onCategoryChange={setCategory}

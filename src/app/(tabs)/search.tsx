@@ -43,7 +43,7 @@ export default function SearchScreen() {
   const { profile } = useProfile(session?.user.id ?? null);
   useApplyDefaultCity(profile, setCity);
 
-  const { concerts, isLoading } = useEdmConcerts(city);
+  const { concerts, isLoading, refresh } = useEdmConcerts(city);
   const { isSaved, isSavePending, toggleSave } = useSavedConcerts(session?.user.id ?? null);
   const { coords: userLocation } = useUserLocation();
 
@@ -61,7 +61,7 @@ export default function SearchScreen() {
   const trimmed = query.trim();
 
   return (
-    <ScreenScaffold title="Search">
+    <ScreenScaffold title="Search" onRefresh={refresh}>
       <View style={styles.fieldRow}>
         <ThemedView type="backgroundElement" style={styles.field}>
           <ThemedText allowFontScaling={false} style={[styles.glyph, { color: theme.textSecondary }]}>
