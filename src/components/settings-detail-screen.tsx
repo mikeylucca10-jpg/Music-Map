@@ -54,7 +54,7 @@ export function SettingsDetailScreen({
           <ThemedText allowFontScaling={false} style={styles.backGlyph}>
             ‹
           </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="default" themeColor="textSecondary">
             Settings
           </ThemedText>
         </Pressable>
@@ -123,9 +123,15 @@ const styles = StyleSheet.create({
     // flex child stretched across the full width, and taps far to the right of
     // "Settings" would go back, which reads as the screen mis-firing.
     alignSelf: 'flex-start',
-    paddingRight: Spacing.two,
+    // Real padding rather than hitSlop, which web ignores. It widens the
+    // target past the words themselves and gives the glyph room from the
+    // screen edge, where a thumb is least accurate.
+    paddingRight: Spacing.three,
+    paddingVertical: Spacing.one,
   },
-  // Off-scale: one glyph optically centred against the label beside it.
-  backGlyph: { fontSize: 22, lineHeight: 24 },
+  // Off-scale: one glyph optically centred against the label beside it. Sized
+  // up with the label — at 22 against 14pt text this read as punctuation in
+  // front of a word rather than as the button it is.
+  backGlyph: { fontSize: 30, lineHeight: 32 },
   pressed: { opacity: 0.6 },
 });
