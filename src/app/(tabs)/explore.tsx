@@ -13,14 +13,21 @@ import { useApplyDefaultCity } from '@/hooks/use-apply-default-city';
 import { useAuth } from '@/hooks/use-auth';
 import { DISTANCE_OPTIONS, useConcertsFilters } from '@/hooks/use-concerts-filters';
 import { useEdmConcerts } from '@/hooks/use-edm-concerts';
+import { useFollows } from '@/hooks/use-follows';
+import { useFilterState } from '@/hooks/use-filter-state';
 import { useProfile } from '@/hooks/use-profile';
 import { useTheme } from '@/hooks/use-theme';
 import { useUserLocation } from '@/hooks/use-user-location';
+import { formatConcertDateTime } from '@/lib/format-date';
 import { CITIES } from '@/types/concert';
 
 export default function ExploreScreen() {
   const safeAreaInsets = useSafeAreaInsets();
-  const [city, setCity] = useState(CITIES[0]);
+  const { session } = useAuth();
+  const { follows } = useFollows(session?.user.id ?? null);
+  // Shared with the other screen through the tabs-level provider, so paging
+  // the week or switching city on one is reflected on the other.
+  const { city, setCity } = useFilterState();
   const { concerts, isLoading, error, refresh } = useEdmConcerts(city);
   // Declared before useConcertsFilters, which now takes the coordinates for
   // the distance filter.
@@ -53,12 +60,17 @@ export default function ExploreScreen() {
     canGoNextWeek,
     weekNavRelevant,
     setWeekOffset,
+    weekNights,
+    followingOnly,
+    setFollowingOnly,
+    followCount,
+    nextShowAhead,
+    hasAnyConcerts,
     activeFilters,
     resetFilters,
     filteredConcerts,
-  } = useConcertsFilters(concerts, city, [], userLocation);
+  } = useConcertsFilters(concerts, city, follows, userLocation);
 
-  const { session } = useAuth();
   const { profile } = useProfile(session?.user.id ?? null);
   useApplyDefaultCity(profile, setCity);
   const theme = useTheme();
@@ -137,6 +149,10 @@ export default function ExploreScreen() {
           canGoNextWeek={canGoNextWeek}
           weekNavRelevant={weekNavRelevant}
           setWeekOffset={setWeekOffset}
+          weekNights={weekNights}
+          followingOnly={followingOnly}
+          onFollowingOnlyChange={setFollowingOnly}
+          followCount={followCount}
           activeFilters={activeFilters}
           onResetFilters={resetFilters}
           resultCount={filteredConcerts.length}
@@ -155,10 +171,42 @@ export default function ExploreScreen() {
                 </Pressable>
               </>
             )}
+            {/* Never claims the city has nothing while the feed holds shows —
+                the same rule the list screen already follows, which the map
+                was breaking. It said "No upcoming EDM shows found right now"
+                about Los Angeles on a week with thirty-two listings loaded,
+                because the current week there happens to be empty. */}
             {!isLoading && !error && filteredConcerts.length === 0 && (
-              <ThemedText type="small" themeColor="textSecondary">
-                No upcoming EDM shows found right now.
-              </ThemedText>
+              <>
+                <ThemedText type="smallBold">
+                  {hasAnyConcerts ? 'Nothing on this week' : 'No shows loaded yet'}
+                </ThemedText>
+                <ThemedText type="small" themeColor="textSecondary" style={styles.messageBody}>
+                  {hasAnyConcerts
+                    ? nextShowAhead
+                      ? 'This week is quiet. The next show is:'
+                      : 'Nothing matches these filters. Try another week, borough, or category.'
+                    : 'Check back shortly.'}
+                </ThemedText>
+                {nextShowAhead && (
+                  <Pressable
+                    onPress={() => setWeekOffset(nextShowAhead.weekOffset)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Jump to ${formatConcertDateTime(nextShowAhead.concert.startDateTime, nextShowAhead.concert.timezone)}, ${nextShowAhead.concert.name}`}
+                    style={({ pressed }) => [
+                      styles.jumpButton,
+                      { backgroundColor: theme.accent },
+                      pressed && styles.pressed,
+                    ]}>
+                    <ThemedText type="smallBold" style={{ color: theme.accentInk }}>
+                      {formatConcertDateTime(
+                        nextShowAhead.concert.startDateTime,
+                        nextShowAhead.concert.timezone,
+                      )}
+                    </ThemedText>
+                  </Pressable>
+                )}
+              </>
             )}
           </ThemedView>
         </View>
@@ -199,6 +247,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: Spacing.four,
     zIndex: 1100,
+  },
+  messageBody: {
+    textAlign: 'center',
+  },
+  jumpButton: {
+    marginTop: Spacing.one,
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.two,
+    borderRadius: Radius.pill,
   },
   messageCard: {
     gap: Spacing.two,

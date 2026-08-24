@@ -42,6 +42,13 @@ export type SelectOption = {
  * So the sheet grows a second section instead. Each section keeps its own
  * selection, which is the only shape that lets two independent filters share
  * one surface without pretending to be the same question.
+ *
+ * A section is one row that drills in, not its options listed inline. Inline
+ * cost a row per option below a list that already filled the sheet: measured
+ * at 393x852, the seven categories ran to the bottom edge and every distance
+ * option sat past it, so the control was invisible until you thought to scroll
+ * a sheet that gave no sign there was more. Collapsed, the whole sheet fits and
+ * the row still shows its current value.
  */
 export type SelectSection = {
   title: string;
@@ -62,6 +69,69 @@ type SelectSheetProps = {
   /** Rendered below the main list, each with its own independent selection. */
   sections?: SelectSection[];
 };
+
+type SheetRowProps = {
+  label: string;
+  detail?: string;
+  selected: boolean;
+  /** Draws a chevron rather than a check — the row opens a list, not a choice. */
+  opensList?: boolean;
+  accessibilityLabel: string;
+  onPress: () => void;
+};
+
+/**
+ * One row, shared by the option list, the drilled-in sub-lists and the section
+ * summaries. These were three near-identical copies before sections learned to
+ * drill; a fourth was the point to stop copying.
+ */
+function SheetRow({
+  label,
+  detail,
+  selected,
+  opensList = false,
+  accessibilityLabel,
+  onPress,
+}: SheetRowProps) {
+  const theme = useTheme();
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={opensList ? undefined : { selected }}
+      accessibilityLabel={accessibilityLabel}
+      style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+      <View style={styles.rowLabel}>
+        <ThemedText
+          type={selected ? 'smallBold' : 'default'}
+          style={selected ? { color: theme.accentText } : undefined}
+          numberOfLines={1}>
+          {label}
+        </ThemedText>
+        {detail ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            {detail}
+          </ThemedText>
+        ) : null}
+      </View>
+      {/* A check as well as the colour. Selected state carried by hue alone
+          fails for anyone who cannot separate those two reds, and it is the one
+          state on this sheet that has to be unambiguous. A chevron instead when
+          the row opens a list — the two mean opposite things and must not look
+          alike. */}
+      {opensList ? (
+        <ThemedText allowFontScaling={false} style={[styles.check, { color: theme.textSecondary }]}>
+          ›
+        </ThemedText>
+      ) : selected ? (
+        <ThemedText allowFontScaling={false} style={[styles.check, { color: theme.accentText }]}>
+          ✓
+        </ThemedText>
+      ) : null}
+    </Pressable>
+  );
+}
 
 /**
  * One-of-many selection, as a bottom sheet rather than a dropdown.
@@ -95,14 +165,23 @@ export function SelectSheet({
   sections,
 }: SelectSheetProps) {
   const insets = useSafeAreaInsets();
-  const theme = useTheme();
   const { height } = useWindowDimensions();
 
   // Which parent we have drilled into, or null at the top level. Held as the
   // option id rather than the option itself so it cannot go stale if the list
-  // is rebuilt underneath — the id is looked up fresh on every render.
+  // is rebuilt underneath — the id is looked up fresh on every render. Sections
+  // drill by title for the same reason.
+  //
+  // Two ids rather than one tagged union: they are mutually exclusive by
+  // construction (you can only tap one row), and every write below clears the
+  // other, so the pair cannot represent a state the UI does not have.
   const [drilledId, setDrilledId] = useState<string | null>(null);
+  const [drilledSectionTitle, setDrilledSectionTitle] = useState<string | null>(null);
+
   const drilled = drilledId ? (options.find((option) => option.id === drilledId) ?? null) : null;
+  const drilledSection = drilledSectionTitle
+    ? (sections?.find((section) => section.title === drilledSectionTitle) ?? null)
+    : null;
 
   // Reset to the top level whenever the sheet is reopened, so it never comes
   // back showing the sub-list somebody backed out of last time. Compared during
@@ -111,7 +190,10 @@ export function SelectSheet({
   const [wasVisible, setWasVisible] = useState(visible);
   if (visible !== wasVisible) {
     setWasVisible(visible);
-    if (visible && drilledId) setDrilledId(null);
+    if (visible) {
+      if (drilledId) setDrilledId(null);
+      if (drilledSectionTitle) setDrilledSectionTitle(null);
+    }
   }
 
   const rows: SelectOption[] = drilled
@@ -121,10 +203,18 @@ export function SelectSheet({
       ]
     : options;
 
-  function close() {
+  function goToTopLevel() {
     setDrilledId(null);
+    setDrilledSectionTitle(null);
+  }
+
+  function close() {
+    goToTopLevel();
     onClose();
   }
+
+  const isDrilled = Boolean(drilled || drilledSection);
+  const drilledLabel = drilled?.label ?? drilledSection?.title ?? '';
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={close}>
@@ -138,9 +228,9 @@ export function SelectSheet({
           {/* Back replaces nothing at the top level — the title simply shifts to
               name where you are. A drilled-in sheet with no way back would trap
               someone who tapped the wrong city. */}
-          {drilled ? (
+          {isDrilled ? (
             <Pressable
-              onPress={() => setDrilledId(null)}
+              onPress={goToTopLevel}
               hitSlop={10}
               accessibilityRole="button"
               accessibilityLabel={`Back to ${title}`}
@@ -148,7 +238,7 @@ export function SelectSheet({
               <ThemedText allowFontScaling={false} style={styles.closeIcon}>
                 ‹
               </ThemedText>
-              <ThemedText type="subtitle">{drilled.label}</ThemedText>
+              <ThemedText type="subtitle">{drilledLabel}</ThemedText>
             </Pressable>
           ) : (
             <ThemedText type="subtitle">{title}</ThemedText>
@@ -169,119 +259,99 @@ export function SelectSheet({
             instead of pushing the sheet past the top of the display, while a
             short one still sits low and close to the thumb. */}
         <ScrollView style={{ maxHeight: height * 0.6 }} showsVerticalScrollIndicator={false}>
-          {rows.map((option) => {
-            const selected = option.id === selectedId;
-            // Only drill in from the top level, so a sub-list cannot nest
-            // further. Two levels is all the data has, and an unbounded stack
-            // would need a breadcrumb this sheet has no room for.
-            const canDrill = !drilled && Boolean(option.children?.length);
-            return (
-              <Pressable
-                key={option.id}
-                onPress={() => {
-                  if (canDrill) {
-                    setDrilledId(option.id);
-                    return;
-                  }
-                  onSelect(option.id);
-                  close();
-                }}
-                accessibilityRole="button"
-                accessibilityState={canDrill ? undefined : { selected }}
-                accessibilityLabel={
-                  canDrill
-                    ? `${option.label}, ${option.children?.length} areas. Opens a list.`
-                    : option.detail
-                      ? `${option.label}, ${option.detail}`
-                      : option.label
-                }
-                style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-                <View style={styles.rowLabel}>
-                  <ThemedText
-                    type={selected ? 'smallBold' : 'default'}
-                    style={selected ? { color: theme.accentText } : undefined}
-                    numberOfLines={1}>
-                    {option.label}
-                  </ThemedText>
-                  {option.detail ? (
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {option.detail}
-                    </ThemedText>
-                  ) : null}
-                </View>
-                {/* A check as well as the colour. Selected state carried by hue
-                    alone fails for anyone who cannot separate those two reds,
-                    and it is the one state on this sheet that has to be
-                    unambiguous. A chevron instead when the row opens a list —
-                    the two mean opposite things and must not look alike. */}
-                {canDrill ? (
-                  <ThemedText
-                    allowFontScaling={false}
-                    style={[styles.check, { color: theme.textSecondary }]}>
-                    ›
-                  </ThemedText>
-                ) : selected ? (
-                  <ThemedText
-                    allowFontScaling={false}
-                    style={[styles.check, { color: theme.accentText }]}>
-                    ✓
-                  </ThemedText>
-                ) : null}
-              </Pressable>
-            );
-          })}
-
-          {/* Only at the top level. A drilled-in sub-list is answering a
-              different question, and an unrelated section beneath it would make
-              the back button ambiguous about what it returns to. */}
-          {!drilled &&
-            sections?.map((section) => (
-              <View key={section.title}>
+          {drilledSection ? (
+            <>
+              {drilledSection.note ? (
                 <View style={styles.sectionHeading}>
-                  <ThemedText type="eyebrow" themeColor="textSecondary">
-                    {section.title}
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {drilledSection.note}
                   </ThemedText>
-                  {section.note ? (
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {section.note}
-                    </ThemedText>
-                  ) : null}
                 </View>
-                {section.options.map((option) => {
-                  const selected = option.id === section.selectedId;
+              ) : null}
+              {drilledSection.options.map((option) => (
+                <SheetRow
+                  key={option.id}
+                  label={option.label}
+                  detail={option.detail}
+                  selected={option.id === drilledSection.selectedId}
+                  // Names the section too, so a screen reader hears "Distance,
+                  // within 5 miles" rather than a bare "within 5 miles" with no
+                  // idea which control it belongs to.
+                  accessibilityLabel={`${drilledSection.title}, ${option.label}`}
+                  onPress={() => {
+                    drilledSection.onSelect(option.id);
+                    close();
+                  }}
+                />
+              ))}
+            </>
+          ) : (
+            <>
+              {rows.map((option) => {
+                // Only drill in from the top level, so a sub-list cannot nest
+                // further. Two levels is all the data has, and an unbounded
+                // stack would need a breadcrumb this sheet has no room for.
+                const canDrill = !drilled && Boolean(option.children?.length);
+                return (
+                  <SheetRow
+                    key={option.id}
+                    label={option.label}
+                    detail={option.detail}
+                    selected={option.id === selectedId}
+                    opensList={canDrill}
+                    accessibilityLabel={
+                      canDrill
+                        ? `${option.label}, ${option.children?.length} areas. Opens a list.`
+                        : option.detail
+                          ? `${option.label}, ${option.detail}`
+                          : option.label
+                    }
+                    onPress={() => {
+                      if (canDrill) {
+                        setDrilledSectionTitle(null);
+                        setDrilledId(option.id);
+                        return;
+                      }
+                      onSelect(option.id);
+                      close();
+                    }}
+                  />
+                );
+              })}
+
+              {/* Only at the top level. A drilled-in sub-list is answering a
+                  different question, and an unrelated section beneath it would
+                  make the back button ambiguous about what it returns to. */}
+              {!drilled &&
+                sections?.map((section) => {
+                  // The section's own value on the row's second line, so
+                  // collapsing it does not hide what it is currently set to.
+                  // Without this the row would be the one control on the sheet
+                  // you have to open to find out whether it is doing anything.
+                  const current = section.options.find(
+                    (option) => option.id === section.selectedId,
+                  );
                   return (
-                    <Pressable
-                      key={option.id}
+                    <SheetRow
+                      key={section.title}
+                      label={section.title}
+                      detail={current?.label}
+                      selected={false}
+                      opensList
+                      accessibilityLabel={
+                        current
+                          ? `${section.title}, ${current.label}. Opens a list.`
+                          : `${section.title}. Opens a list.`
+                      }
                       onPress={() => {
-                        section.onSelect(option.id);
-                        close();
+                        setDrilledId(null);
+                        setDrilledSectionTitle(section.title);
                       }}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected }}
-                      // Names the section too, so a screen reader hears "Distance,
-                      // within 5 miles" rather than a bare "within 5 miles" with
-                      // no idea which control it belongs to.
-                      accessibilityLabel={`${section.title}, ${option.label}`}
-                      style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-                      <View style={styles.rowLabel}>
-                        <ThemedText
-                          type={selected ? 'smallBold' : 'default'}
-                          style={selected ? { color: theme.accentText } : undefined}>
-                          {option.label}
-                        </ThemedText>
-                      </View>
-                      {selected ? (
-                        <ThemedText
-                          allowFontScaling={false}
-                          style={[styles.check, { color: theme.accentText }]}>
-                          ✓
-                        </ThemedText>
-                      ) : null}
-                    </Pressable>
+                    />
                   );
                 })}
-              </View>
-            ))}
+            </>
+          )}
         </ScrollView>
       </ThemedView>
     </Modal>
@@ -313,8 +383,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   closeIcon: { fontSize: 18 },
-  // Space above separates the section from the list it follows; the label
-  // aligns with the rows rather than the sheet edge.
+  // Space above separates the section note from the rows it introduces; the
+  // label aligns with the rows rather than the sheet edge.
   sectionHeading: {
     gap: Spacing.half,
     paddingHorizontal: Spacing.four,

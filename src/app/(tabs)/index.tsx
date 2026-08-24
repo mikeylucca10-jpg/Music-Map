@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 
 import { ConcertListCard } from '@/components/concert-list-card';
@@ -13,6 +13,7 @@ import { useApplyDefaultCity } from '@/hooks/use-apply-default-city';
 import { useAuth } from '@/hooks/use-auth';
 import { DISTANCE_OPTIONS, useConcertsFilters } from '@/hooks/use-concerts-filters';
 import { useEdmConcerts } from '@/hooks/use-edm-concerts';
+import { useFilterState } from '@/hooks/use-filter-state';
 import { useFollows } from '@/hooks/use-follows';
 import { useProfile } from '@/hooks/use-profile';
 import { useSavedConcerts } from '@/hooks/use-saved-concerts';
@@ -26,7 +27,9 @@ import { CITIES, ConcertSummary } from '@/types/concert';
 // a featured carousel of the same shows. The two were near-duplicates, so the
 // list took over as the landing screen and the carousel was dropped.
 export default function HomeScreen() {
-  const [city, setCity] = useState(CITIES[0]);
+  // Shared with the other screen through the tabs-level provider, so paging
+  // the week or switching city on one is reflected on the other.
+  const { city, setCity } = useFilterState();
   const { concerts, isLoading, error, classifiedError, refresh } = useEdmConcerts(city);
   const { session } = useAuth();
   const { follows } = useFollows(session?.user.id ?? null);

@@ -1,4 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
+
+import { useFilterState } from '@/hooks/use-filter-state';
 
 import { getDistanceMiles, isPointInMultiPolygon } from '@/lib/geo';
 import {
@@ -272,19 +274,31 @@ export function useConcertsFilters(
    */
   userLocation?: { latitude: number; longitude: number } | null,
 ) {
-  const [followingOnly, setFollowingOnly] = useState(false);
-  const [category, setCategory] = useState<Category>('All');
-  const [boroughId, setBoroughId] = useState<string | null>(null);
-  const [dateKey, setDateKey] = useState<string | null>(null);
-  const [weekOffset, setWeekOffset] = useState(0);
-  const [maxMiles, setMaxMiles] = useState<number | null>(null);
+  // Shared across Home and Explore rather than private to whichever screen
+  // called this hook. The two are views of one dataset, and separate copies
+  // drifted the moment either was touched — see use-filter-state.tsx.
+  const {
+    followingOnly,
+    setFollowingOnly,
+    category,
+    setCategory,
+    boroughId,
+    setBoroughId,
+    dateKey,
+    setDateKey,
+    weekOffset,
+    setWeekOffset,
+    maxMiles,
+    setMaxMiles,
+    lastCityId,
+    setLastCityId,
+  } = useFilterState();
 
   // Reset the borough selection and week position when the city changes
   // (e.g. NYC -> Vegas) so stale filters don't silently zero out another
   // city's results. This runs during render, not an effect, so it doesn't
   // need the set-state-in-effect eslint-disable used elsewhere in the
   // codebase.
-  const [lastCityId, setLastCityId] = useState(city.id);
   if (city.id !== lastCityId) {
     setLastCityId(city.id);
     setBoroughId(null);
