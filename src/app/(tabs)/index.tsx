@@ -212,9 +212,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   messageCard: {
     gap: Spacing.two,
-    marginHorizontal: Spacing.four,
-    marginTop: Spacing.four,
-    borderRadius: Spacing.three,
+    borderRadius: Radius.card,
     padding: Spacing.four,
     alignItems: 'center',
   },
@@ -232,7 +230,5 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: Spacing.three,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.four,
   },
 });

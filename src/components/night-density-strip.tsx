@@ -210,7 +210,6 @@ export function NightDensityStrip({
 
 const styles = StyleSheet.create({
   container: {
-    marginHorizontal: Spacing.four,
     marginTop: Spacing.three,
     borderRadius: Radius.card,
     paddingVertical: Spacing.two,

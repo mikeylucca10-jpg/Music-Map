@@ -1,9 +1,8 @@
 import { useState, type ReactNode } from 'react';
-import { Platform, RefreshControl, ScrollView, StyleSheet } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useContentInsets } from '@/hooks/use-content-insets';
 import { useTheme } from '@/hooks/use-theme';
@@ -75,7 +74,6 @@ export function ScreenScaffold({ title, subtitle, children, onRefresh }: ScreenS
 
         {children}
 
-        {Platform.OS === 'web' && <WebBadge />}
       </ThemedView>
     </ScrollView>
   );
