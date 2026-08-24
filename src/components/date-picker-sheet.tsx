@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { StepperButton } from '@/components/stepper-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Radius, Spacing } from '@/constants/theme';
+import { useSheetDrag } from '@/hooks/use-sheet-drag';
 import { useTheme } from '@/hooks/use-theme';
 import { dateKeyFor, getConcertDateKey } from '@/lib/format-date';
 
@@ -129,14 +130,20 @@ export function DatePickerSheet({
     onSelectNextWeek?.();
   }
 
+  const drag = useSheetDrag(onClose);
+
   const cells = getCalendarCells(viewYear, viewMonth);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
+      <Animated.View style={drag.style}>
       <ThemedView
         type="backgroundElement"
         style={[styles.sheet, { paddingBottom: insets.bottom + Spacing.four }]}>
+        {/* Drag zone is the grabber and header only — a responder over the
+            calendar grid would swallow taps meant for a day. */}
+        <View style={styles.dragZone} {...drag.panHandlers}>
         <View style={styles.grabber} />
 
         <View style={styles.header}>
@@ -150,6 +157,7 @@ export function DatePickerSheet({
             accessibilityLabel="Close">
             <ThemedText style={styles.closeIcon}>✕</ThemedText>
           </Pressable>
+        </View>
         </View>
 
         <View style={styles.monthRow}>
@@ -255,6 +263,7 @@ export function DatePickerSheet({
           </Pressable>
         </View>
       </ThemedView>
+      </Animated.View>
     </Modal>
   );
 }
@@ -270,6 +279,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     gap: Spacing.three,
   },
+  dragZone: { gap: Spacing.three },
   grabber: {
     alignSelf: 'center',
     width: 36,

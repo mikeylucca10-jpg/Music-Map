@@ -1,13 +1,23 @@
 import { Image } from 'expo-image';
 import { Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  Animated,
+  Linking,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ExternalLink } from '@/components/external-link';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { useSheetDrag } from '@/hooks/use-sheet-drag';
 import { useTheme } from '@/hooks/use-theme';
 import { formatConcertDateTime } from '@/lib/format-date';
 import { getTicketSources, TicketSource } from '@/lib/ticket-sources';
@@ -44,14 +54,22 @@ export function ConcertDetailSheet({
     onToggleSave?.();
   }
 
+  const drag = useSheetDrag(onClose);
+
   return (
     <Modal visible={concert !== null} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
       {concert && (
+        <Animated.View style={drag.style}>
         <ThemedView
           type="backgroundElement"
           style={[styles.sheet, { paddingBottom: insets.bottom + Spacing.four }]}>
-          <View style={styles.grabber} />
+          {/* Only this strip drags — the body below is a ScrollView, and a
+              responder over it would stop the sheet scrolling. Padded well
+              past the 36x4 bar itself, which is far too small to catch. */}
+          <View style={styles.dragZone} {...drag.panHandlers}>
+            <View style={styles.grabber} />
+          </View>
           <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
             {/* Same URL the card already fetched, so this is normally a cache
                 hit and the hero appears without a second download. */}
@@ -147,6 +165,7 @@ export function ConcertDetailSheet({
             </View>
           </ScrollView>
         </ThemedView>
+        </Animated.View>
       )}
     </Modal>
   );
@@ -192,6 +211,7 @@ const styles = StyleSheet.create({
     maxHeight: '85%',
     overflow: 'hidden',
   },
+  dragZone: { paddingTop: Spacing.two, paddingBottom: Spacing.three },
   grabber: {
     alignSelf: 'center',
     width: 36,

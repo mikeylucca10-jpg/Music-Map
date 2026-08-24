@@ -1,10 +1,19 @@
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import {
+  Animated,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, MinTouchTarget, Radius, Spacing } from '@/constants/theme';
+import { useSheetDrag } from '@/hooks/use-sheet-drag';
 import { useTheme } from '@/hooks/use-theme';
 
 export type SelectOption = {
@@ -213,15 +222,22 @@ export function SelectSheet({
     onClose();
   }
 
+  const drag = useSheetDrag(close);
+
   const isDrilled = Boolean(drilled || drilledSection);
   const drilledLabel = drilled?.label ?? drilledSection?.title ?? '';
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={close}>
       <Pressable style={styles.backdrop} onPress={close} accessibilityLabel="Close" />
+      <Animated.View style={drag.style}>
       <ThemedView
         type="backgroundElement"
         style={[styles.sheet, { paddingBottom: insets.bottom + Spacing.three }]}>
+        {/* The drag zone is the grabber and header, not the sheet. A responder
+            over the body would fight the ScrollView below for every vertical
+            drag, and the long lists are exactly the ones that need to scroll. */}
+        <View style={styles.dragZone} {...drag.panHandlers}>
         <View style={styles.grabber} />
 
         <View style={styles.header}>
@@ -253,6 +269,7 @@ export function SelectSheet({
               ✕
             </ThemedText>
           </Pressable>
+        </View>
         </View>
 
         {/* Caps at 60% of the screen so a long list scrolls inside the sheet
@@ -354,6 +371,7 @@ export function SelectSheet({
           )}
         </ScrollView>
       </ThemedView>
+      </Animated.View>
     </Modal>
   );
 }
@@ -369,6 +387,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     gap: Spacing.three,
   },
+  dragZone: { gap: Spacing.three },
   grabber: {
     alignSelf: 'center',
     width: 36,
