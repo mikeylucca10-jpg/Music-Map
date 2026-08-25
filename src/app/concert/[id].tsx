@@ -1,7 +1,6 @@
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { Href, router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -20,11 +19,10 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAddToCalendar } from '@/hooks/use-add-to-calendar';
-import { useApplyDefaultCity } from '@/hooks/use-apply-default-city';
 import { useAuth } from '@/hooks/use-auth';
 import { useEdmConcerts } from '@/hooks/use-edm-concerts';
+import { useFilterState } from '@/hooks/use-filter-state';
 import { useFollows } from '@/hooks/use-follows';
-import { useProfile } from '@/hooks/use-profile';
 import { useSavedConcerts } from '@/hooks/use-saved-concerts';
 import { useTheme } from '@/hooks/use-theme';
 import { useUserLocation } from '@/hooks/use-user-location';
@@ -37,7 +35,7 @@ import {
 } from '@/lib/format-date';
 import { distanceLabelFor } from '@/lib/geo';
 import { getTicketSources, TicketSource } from '@/lib/ticket-sources';
-import { CITIES, Concert, ConcertSummary } from '@/types/concert';
+import { Concert, ConcertSummary } from '@/types/concert';
 
 
 
@@ -60,10 +58,21 @@ export default function ConcertScreen() {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
 
-  const [city, setCity] = useState(CITIES[0]);
+  // The city that was being browsed, shared from the tab screens — not this
+  // screen's own state.
+  //
+  // It used to default to CITIES[0], so opening any show outside New York
+  // looked up an LA or Chicago id inside the New York feed, found nothing, and
+  // rendered an empty screen. The show was plainly visible on the list one tap
+  // earlier, which made it read as the detail screen being broken rather than
+  // as looking in the wrong place.
+  //
+  // useApplyDefaultCity is deliberately NOT called here. Its "apply once" latch
+  // is a ref held per hook instance, so mounting this screen would count as a
+  // fresh first-load and reset the shared city to the profile default —
+  // silently undoing the city switch that got you here.
+  const { city } = useFilterState();
   const { session } = useAuth();
-  const { profile } = useProfile(session?.user.id ?? null);
-  useApplyDefaultCity(profile, setCity);
 
   const { concerts, isLoading } = useEdmConcerts(city);
   const { savedConcerts, isSaved, isSavePending, toggleSave } = useSavedConcerts(

@@ -1,5 +1,4 @@
 import AppTabs from '@/components/app-tabs';
-import { FilterStateProvider } from '@/hooks/use-filter-state';
 
 /**
  * The tab bar, scoped to this group only.
@@ -19,9 +18,5 @@ import { FilterStateProvider } from '@/hooks/use-filter-state';
  * up one listing, not browsing a filtered set.
  */
 export default function TabsLayout() {
-  return (
-    <FilterStateProvider>
-      <AppTabs />
-    </FilterStateProvider>
-  );
+  return <AppTabs />;
 }

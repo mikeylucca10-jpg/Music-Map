@@ -4,6 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { FilterStateProvider } from '@/hooks/use-filter-state';
 import { Colors, DisplayFontFamily } from '@/constants/theme';
 
 SplashScreen.preventAutoHideAsync();
@@ -35,6 +36,11 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
+      {/* Wraps the whole stack, not just the tabs group. A show's own screen is
+          a sibling of (tabs) rather than a child, and it needs the city that
+          was being browsed in order to find the show at all — see the note in
+          concert/[id].tsx. */}
+      <FilterStateProvider>
       <Stack
         screenOptions={{
           headerShown: false,
@@ -61,6 +67,7 @@ export default function RootLayout() {
         <Stack.Screen name="terms" />
         <Stack.Screen name="reset-password" />
       </Stack>
+      </FilterStateProvider>
     </ThemeProvider>
   );
 }
