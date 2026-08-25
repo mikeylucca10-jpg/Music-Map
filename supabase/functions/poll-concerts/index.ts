@@ -31,17 +31,28 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const DISCOVERY_EVENTS_URL = 'https://app.ticketmaster.com/discovery/v2/events.json';
 
+// Discovery refuses to page past the 1000th result of any query (size * page
+// < 1000), so five pages at 199 is the ceiling. Same value as the proxy.
+const MAX_PAGES = 5;
+
 /**
  * Mirrors ALLOWED_CITIES in ../concerts/index.ts and CITIES in
  * src/types/concert.ts. Keep all three in sync when a city is added.
  */
-const CITIES: Record<string, { city: string; stateCode: string; countryCode: string }> = {
-  nyc: { city: 'New York', stateCode: 'NY', countryCode: 'US' },
-  la: { city: 'Los Angeles', stateCode: 'CA', countryCode: 'US' },
-  miami: { city: 'Miami', stateCode: 'FL', countryCode: 'US' },
-  chicago: { city: 'Chicago', stateCode: 'IL', countryCode: 'US' },
-  sf: { city: 'San Francisco', stateCode: 'CA', countryCode: 'US' },
-  vegas: { city: 'Las Vegas', stateCode: 'NV', countryCode: 'US' },
+// Must stay identical to ALLOWED_CITIES in the concerts proxy. When these two
+// drift, the app shows events this function never ingests, and alerts for them
+// silently never fire — see poller-parity.test.ts.
+const CITIES: Record<string, { cities: string[]; stateCode: string; countryCode: string }> = {
+  nyc: {
+    cities: ['New York', 'Brooklyn', 'Queens', 'Bronx', 'Staten Island'],
+    stateCode: 'NY',
+    countryCode: 'US',
+  },
+  la: { cities: ['Los Angeles'], stateCode: 'CA', countryCode: 'US' },
+  miami: { cities: ['Miami', 'Miami Beach'], stateCode: 'FL', countryCode: 'US' },
+  chicago: { cities: ['Chicago'], stateCode: 'IL', countryCode: 'US' },
+  sf: { cities: ['San Francisco', 'Oakland'], stateCode: 'CA', countryCode: 'US' },
+  vegas: { cities: ['Las Vegas'], stateCode: 'NV', countryCode: 'US' },
 };
 
 /**
@@ -159,24 +170,50 @@ Deno.serve(async (req) => {
   for (const [cityId, city] of Object.entries(CITIES)) {
     const params = new URLSearchParams({
       apikey: apiKey,
-      city: city.city,
       stateCode: city.stateCode,
       countryCode: city.countryCode,
       classificationName: 'Dance/Electronic',
       startDateTime: `${new Date().toISOString().split('.')[0]}Z`,
       sort: 'date,asc',
-      size: '100',
+      // Matches the user-facing proxy. Discovery's per-page ceiling is 199, and
+      // at 100 Las Vegas returned a quarter of its catalogue.
+      size: '199',
     });
+    // Repeated city params are OR'd by Discovery. This has to match the proxy
+    // exactly: city=New York alone returns only Manhattan, so Brooklyn Steel,
+    // Elsewhere, Avant Gardner and House of Yes were all invisible here. The
+    // app displayed those shows while this function could not see them, so they
+    // never entered seen_concerts — and a follow on any of those venues, or on
+    // an artist playing them, could never fire an alert. Silent in both
+    // directions: no error, just nothing.
+    for (const name of city.cities) params.append('city', name);
 
     let events: unknown[] = [];
     try {
-      const upstream = await fetch(`${DISCOVERY_EVENTS_URL}?${params.toString()}`);
-      if (!upstream.ok) {
-        results[cityId] = { error: `upstream ${upstream.status}` };
-        continue;
+      // Paged like the proxy. Discovery refuses to page past the 1000th result
+      // (size * page < 1000), so five pages at 199 is the ceiling.
+      for (let page = 0; page < MAX_PAGES; page++) {
+        params.set('page', String(page));
+        const upstream = await fetch(`${DISCOVERY_EVENTS_URL}?${params.toString()}`);
+        if (!upstream.ok) {
+          // A later page failing is not worth discarding the pages already in
+          // hand — but page 0 failing means there is nothing to ingest, and
+          // ingesting a partial feed as if complete is what bootstraps the city
+          // off bad data.
+          if (page === 0) {
+            results[cityId] = { error: `upstream ${upstream.status}` };
+            events = [];
+            break;
+          }
+          break;
+        }
+        const payload = await upstream.json();
+        const pageEvents = payload?._embedded?.events ?? [];
+        events.push(...pageEvents);
+        const totalPages = payload?.page?.totalPages ?? 1;
+        if (page + 1 >= totalPages || pageEvents.length === 0) break;
       }
-      const payload = await upstream.json();
-      events = payload?._embedded?.events ?? [];
+      if (results[cityId]) continue;
     } catch {
       results[cityId] = { error: 'unreachable' };
       continue;

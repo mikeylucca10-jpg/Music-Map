@@ -139,6 +139,9 @@ Deno.serve(async (req) => {
 
   let delivered = 0;
   const disabledTokens: string[] = [];
+  // Tokens Expo actually accepted. Delivery is marked from this, not from the
+  // absence of a dead token — see the note above deliveredUsers below.
+  const okTokens = new Set<string>();
   const failures: string[] = [];
 
   for (let start = 0; start < messages.length; start += MAX_PER_REQUEST) {
@@ -164,6 +167,7 @@ Deno.serve(async (req) => {
     tickets.forEach((ticket, index) => {
       if (ticket?.status === 'ok') {
         delivered++;
+        okTokens.add(chunk[index].to);
         return;
       }
       // A token Expo says is dead must never be sent to again — the app was
@@ -181,9 +185,18 @@ Deno.serve(async (req) => {
   // Marked only after Expo accepted the push, and only for users who had at
   // least one token succeed. Someone whose only device is dead keeps their
   // alerts queued rather than having them silently marked delivered.
-  const deliveredUsers = rows.filter((row) =>
-    row.tokens.some((token) => !disabledTokens.includes(token)),
-  );
+  //
+  // Read from okTokens, not from "not in disabledTokens". The latter looks
+  // equivalent and is not: when a whole chunk fails — Expo returns non-2xx, or
+  // the fetch throws — the loop above continues without tickets, so no token is
+  // ever added to disabledTokens. Every row then passed the check and got
+  // marked sent for a push that never left. That is unrecoverable in both
+  // directions: mark_alerts_sent stamps sent_at, which nothing re-queues, and
+  // bumps last_notified_at, which alerts_due() reads as the 7-day cap. One Expo
+  // outage silently dropped a batch and locked those users out for a week.
+  //
+  // With okTokens a failed chunk marks nothing, and the next hourly run retries.
+  const deliveredUsers = rows.filter((row) => row.tokens.some((token) => okTokens.has(token)));
   for (const row of deliveredUsers) {
     await supabase.rpc('mark_alerts_sent', {
       p_user_id: row.user_id,
