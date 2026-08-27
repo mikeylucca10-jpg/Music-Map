@@ -1,14 +1,16 @@
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ConcertListCard } from '@/components/concert-list-card';
 import { ConcertsFilterBar } from '@/components/concerts-filter-bar';
 import { ConcertsMap } from '@/components/concerts-map';
 import { LocationPermissionPrompt } from '@/components/location-permission-prompt';
+import { MapSheet, MAP_SHEET_PEEK_FRACTION } from '@/components/map-sheet';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, Radius, Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useApplyDefaultCity } from '@/hooks/use-apply-default-city';
 import { useAuth } from '@/hooks/use-auth';
 import { DISTANCE_OPTIONS, useConcertsFilters } from '@/hooks/use-concerts-filters';
@@ -16,12 +18,15 @@ import { useEdmConcerts } from '@/hooks/use-edm-concerts';
 import { useFollows } from '@/hooks/use-follows';
 import { useFilterState } from '@/hooks/use-filter-state';
 import { useProfile } from '@/hooks/use-profile';
+import { useSavedConcerts } from '@/hooks/use-saved-concerts';
 import { useTheme } from '@/hooks/use-theme';
 import { useUserLocation } from '@/hooks/use-user-location';
-import { CITIES } from '@/types/concert';
+import { distanceLabelFor } from '@/lib/geo';
+import { CITIES, ConcertSummary } from '@/types/concert';
 
 export default function ExploreScreen() {
   const safeAreaInsets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const { session } = useAuth();
   const { follows } = useFollows(session?.user.id ?? null);
   // Shared with the other screen through the tabs-level provider, so paging
@@ -71,6 +76,18 @@ export default function ExploreScreen() {
   const { profile } = useProfile(session?.user.id ?? null);
   useApplyDefaultCity(profile, setCity);
   const theme = useTheme();
+  const { isSaved, isSavePending, toggleSave } = useSavedConcerts(session?.user.id ?? null);
+
+  // Hoisted so every card in the sheet shares one function identity — a fresh
+  // arrow per card would defeat ConcertListCard's memo no matter what else
+  // stayed equal. Same pattern as the list screen.
+  const handleSelectConcert = useCallback((summary: ConcertSummary) => {
+    router.push({ pathname: '/concert/[id]', params: { id: summary.id } });
+  }, []);
+  const handleToggleSave = useCallback(
+    (summary: ConcertSummary) => toggleSave(summary),
+    [toggleSave],
+  );
 
   // The soft-ask used to slide up the instant the stored choice resolved, which
   // meant a sheet covering the screen before the map had painted — an ambush
@@ -108,7 +125,14 @@ export default function ExploreScreen() {
               ? 'Show my location on the map'
               : 'Location is blocked. Enable it for this app in your device settings.'
           }
-          style={({ pressed }) => [styles.locationButton, pressed && styles.pressed]}>
+          style={({ pressed }) => [
+            styles.locationButton,
+            // Sits above the sheet at rest rather than under it. Measured from
+            // the sheet's own exported peek fraction, so the two cannot drift
+            // apart the way a matching hard-coded number would.
+            { bottom: windowHeight * MAP_SHEET_PEEK_FRACTION + Spacing.three },
+            pressed && styles.pressed,
+          ]}>
           <ThemedView type="backgroundElement" style={styles.locationPill}>
             <ThemedText type="smallBold">
               {canAskAgain
@@ -155,7 +179,38 @@ export default function ExploreScreen() {
         />
       </View>
 
-      {(isLoading || error || (!isLoading && filteredConcerts.length === 0)) && (
+      {/* The list lives in a sheet over the map rather than behind a jump to a
+          full screen. Looking at three shows used to mean leaving and coming
+          back three times, losing the map position each trip. It rests small —
+          the map is the reason to be on this screen — and pulls up when the
+          list is what you want. */}
+      <MapSheet
+        countLabel={
+          isLoading
+            ? 'Loading…'
+            : filteredConcerts.length === 1
+              ? '1 show'
+              : `${filteredConcerts.length} shows`
+        }>
+        {!isLoading && !error && filteredConcerts.length === 0 && (
+          <ThemedText type="small" themeColor="textSecondary" style={styles.sheetEmpty}>
+            {hasAnyConcerts ? 'Nothing on this week' : 'No shows loaded yet'}
+          </ThemedText>
+        )}
+        {filteredConcerts.map((concert) => (
+          <ConcertListCard
+            key={concert.id}
+            concert={concert}
+            onPress={handleSelectConcert}
+            isSaved={session ? isSaved(concert.id) : undefined}
+            isSavePending={session ? isSavePending(concert.id) : undefined}
+            onToggleSave={session ? handleToggleSave : undefined}
+            distanceLabel={distanceLabelFor(userLocation, concert)}
+          />
+        ))}
+      </MapSheet>
+
+      {(isLoading || error) && (
         <View style={styles.centerOverlay} pointerEvents="box-none">
           <ThemedView type="backgroundElement" style={styles.messageCard}>
             {isLoading && <ActivityIndicator color={theme.accentText} />}
@@ -166,24 +221,6 @@ export default function ExploreScreen() {
                   <ThemedText type="linkPrimary">Retry</ThemedText>
                 </Pressable>
               </>
-            )}
-            {/* One line, not the list screen's card.
-
-                The map is the content here, so anything drawn over it is in
-                the way — a heading, a sentence and a jump button parked in the
-                middle of the city was heavier than the fact it was reporting.
-                The list already carries the full version, including the jump
-                to the next show, and the two screens now share a week: anyone
-                who got here from a quiet week on Home has already read it.
-
-                Still not the old "No upcoming EDM shows found right now",
-                which claimed the city had nothing while thirty-two listings
-                were loaded. Saying *which* week is empty is the whole
-                difference, and it costs three words. */}
-            {!isLoading && !error && filteredConcerts.length === 0 && (
-              <ThemedText type="small" themeColor="textSecondary">
-                {hasAnyConcerts ? 'Nothing on this week' : 'No shows loaded yet'}
-              </ThemedText>
             )}
           </ThemedView>
         </View>
@@ -225,6 +262,7 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     zIndex: 1100,
   },
+  sheetEmpty: { textAlign: 'center', paddingVertical: Spacing.four },
   messageCard: {
     gap: Spacing.two,
     borderRadius: Radius.card,
@@ -238,10 +276,6 @@ const styles = StyleSheet.create({
   locationButton: {
     position: 'absolute',
     right: Spacing.three,
-    // Clears the bottom tab bar. At Spacing.four this sat underneath it and
-    // got clipped, which was only obvious once the pill grew taller than one
-    // line.
-    bottom: BottomTabInset + Spacing.three,
     zIndex: 1100,
   },
   locationPill: {
