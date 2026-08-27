@@ -73,11 +73,11 @@ export function useAuth() {
   /**
    * Sign in with Apple.
    *
-   * Apple first, and for now Apple only. App Store guideline 4.8 makes these
-   * asymmetric: offering Google (or any third-party login) *requires* offering
-   * Sign in with Apple alongside it, while offering Apple alone is fine. So
-   * Apple is the one that can ship on its own, and adding Google later is
-   * additive rather than a prerequisite.
+   * Offered because it is what iOS users expect and the highest-converting
+   * option there, not because it is required. Guideline 4.8 only bites on apps
+   * that use third-party login *exclusively*; this app also has email, so the
+   * rule does not apply and any provider meeting its three criteria (name and
+   * email only, address masking, no ad tracking) would satisfy it anyway.
    *
    * Two different flows behind one function. On iOS the OS supplies a signed
    * identity token directly, which is exchanged with Supabase — no browser, no
@@ -131,6 +131,56 @@ export function useAuth() {
     }
   }, []);
 
+  /**
+   * Email a six-digit sign-in code.
+   *
+   * A code rather than a magic link, deliberately. A link has to redirect back
+   * into the app, and this client runs with `detectSessionInUrl: false` (the
+   * AsyncStorage adapter cannot parse a URL on native), so every link needs
+   * manual fragment parsing plus the redirect target on Supabase's allow list —
+   * and on native it needs a deep link that cannot be verified without a device.
+   * A code is typed into the app: identical on web and native, no redirect, no
+   * allow list, nothing to configure per platform.
+   *
+   * It also removes the password from this path entirely — nothing to invent,
+   * forget, or reuse from somewhere it has already leaked.
+   *
+   * `shouldCreateUser` is left at its default (true): the same code both signs
+   * in an existing account and creates a new one, so there is no sign-up step
+   * to choose first and no "no account found" dead end.
+   */
+  const sendEmailCode = useCallback(async (email: string) => {
+    setError(null);
+    const { error: otpError } = await supabase.auth.signInWithOtp({ email });
+    if (otpError) {
+      setError(otpError.message);
+      return false;
+    }
+    return true;
+  }, []);
+
+  /**
+   * Exchange the emailed code for a session.
+   *
+   * Type is 'email' rather than 'magiclink'. Both arrive from signInWithOtp,
+   * but 'magiclink' only verifies codes for accounts that already exist, so a
+   * first-time user's code is rejected as invalid — which reads as a broken
+   * code rather than the wrong verification type.
+   */
+  const verifyEmailCode = useCallback(async (email: string, token: string) => {
+    setError(null);
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      email,
+      token: token.trim(),
+      type: 'email',
+    });
+    if (verifyError) {
+      setError(verifyError.message);
+      return false;
+    }
+    return true;
+  }, []);
+
   const signOut = useCallback(async () => {
     setError(null);
     const { error: signOutError } = await supabase.auth.signOut();
@@ -157,6 +207,8 @@ export function useAuth() {
     signUp,
     signIn,
     signInWithApple,
+    sendEmailCode,
+    verifyEmailCode,
     signOut,
     resetPassword,
   };

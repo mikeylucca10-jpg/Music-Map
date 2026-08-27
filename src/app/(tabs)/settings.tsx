@@ -24,6 +24,8 @@ export default function SettingsScreen() {
     signIn,
     signUp,
     signInWithApple,
+    sendEmailCode,
+    verifyEmailCode,
     signOut,
     resetPassword,
   } = useAuth();
@@ -39,6 +41,11 @@ export default function SettingsScreen() {
   const [displayNameDraft, setDisplayNameDraft] = useState('');
   const [confirmationPendingEmail, setConfirmationPendingEmail] = useState<string | null>(null);
   const [resetEmailSent, setResetEmailSent] = useState<string | null>(null);
+  // Which address a sign-in code went to, and the code being typed. Non-null
+  // switches the form into code-entry — the password path is irrelevant once a
+  // code is in flight, and leaving both on screen invites filling in the wrong one.
+  const [codeSentTo, setCodeSentTo] = useState<string | null>(null);
+  const [code, setCode] = useState('');
 
   const { follows } = useFollows(userId);
   const theme = useTheme();
@@ -62,6 +69,29 @@ export default function SettingsScreen() {
     setResetEmailSent(null);
     await signInWithApple();
     setIsSubmitting(false);
+  }
+
+  async function handleSendCode() {
+    if (!email.trim()) return;
+    setIsSubmitting(true);
+    setConfirmationPendingEmail(null);
+    setResetEmailSent(null);
+    const sent = await sendEmailCode(email.trim());
+    setIsSubmitting(false);
+    if (sent) setCodeSentTo(email.trim());
+  }
+
+  async function handleVerifyCode() {
+    if (!codeSentTo || !code.trim()) return;
+    setIsSubmitting(true);
+    const ok = await verifyEmailCode(codeSentTo, code);
+    setIsSubmitting(false);
+    // Cleared only on success. A wrong code keeps what was typed so it can be
+    // corrected rather than retyped from scratch.
+    if (ok) {
+      setCodeSentTo(null);
+      setCode('');
+    }
   }
 
   async function handleForgotPassword() {
@@ -268,18 +298,74 @@ export default function SettingsScreen() {
             />
           </ThemedView>
 
-          <ThemedView type="backgroundElement" style={styles.inputWrapper}>
-            <TextInput
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Password"
-              placeholderTextColor={theme.textSecondary}
-              secureTextEntry
-              style={[styles.input, { color: theme.text }]}
-            />
-          </ThemedView>
+          {/* Hidden while a code is in flight. Two ways to sign in on screen at
+              once is an invitation to fill in the wrong one and wonder why
+              nothing happens. */}
+          {!codeSentTo && (
+            <ThemedView type="backgroundElement" style={styles.inputWrapper}>
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Password"
+                placeholderTextColor={theme.textSecondary}
+                secureTextEntry
+                style={[styles.input, { color: theme.text }]}
+              />
+            </ThemedView>
+          )}
 
-          {mode === 'signIn' && (
+          {codeSentTo && (
+            <>
+              <ThemedView type="backgroundSelected" style={styles.messageCard}>
+                <ThemedText type="smallBold">Check your email</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  We sent a 6-digit code to {codeSentTo}. Enter it below — it expires shortly.
+                </ThemedText>
+              </ThemedView>
+
+              <ThemedView type="backgroundElement" style={styles.inputWrapper}>
+                <TextInput
+                  value={code}
+                  onChangeText={setCode}
+                  placeholder="6-digit code"
+                  placeholderTextColor={theme.textSecondary}
+                  keyboardType="number-pad"
+                  // Lets the OS offer the code straight from the email on iOS,
+                  // which is the whole ergonomic advantage of a code over a link.
+                  textContentType="oneTimeCode"
+                  autoComplete="one-time-code"
+                  maxLength={10}
+                  style={[styles.input, { color: theme.text }]}
+                />
+              </ThemedView>
+
+              <Pressable
+                onPress={handleVerifyCode}
+                disabled={!code.trim() || isSubmitting}
+                style={({ pressed }) => [
+                  styles.submitButton,
+                  pressed && styles.pressed,
+                  (!code.trim() || isSubmitting) && styles.disabled,
+                ]}>
+                <ThemedText style={styles.submitButtonLabel}>
+                  {isSubmitting ? 'Please wait…' : 'Sign In'}
+                </ThemedText>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  setCodeSentTo(null);
+                  setCode('');
+                }}
+                style={({ pressed }) => [styles.forgotPasswordLink, pressed && styles.pressed]}>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Use a password instead
+                </ThemedText>
+              </Pressable>
+            </>
+          )}
+
+          {mode === 'signIn' && !codeSentTo && (
             <Pressable
               onPress={handleForgotPassword}
               disabled={!email.trim() || isSubmitting}
@@ -300,6 +386,7 @@ export default function SettingsScreen() {
             </ThemedText>
           )}
 
+          {!codeSentTo && (
           <Pressable
             onPress={submit}
             disabled={!email.trim() || !password.trim() || isSubmitting}
@@ -312,13 +399,33 @@ export default function SettingsScreen() {
               {isSubmitting ? 'Please wait…' : mode === 'signIn' ? 'Sign In' : 'Sign Up'}
             </ThemedText>
           </Pressable>
+          )}
+
+          {/* The passwordless path, offered rather than imposed. Nothing to
+              invent, forget, or reuse from somewhere it has already leaked —
+              and the same code both signs in and creates the account, so there
+              is no sign-up step to pick first. */}
+          {!codeSentTo && (
+            <Pressable
+              onPress={handleSendCode}
+              disabled={!email.trim() || isSubmitting}
+              style={({ pressed }) => [
+                styles.forgotPasswordLink,
+                pressed && styles.pressed,
+                !email.trim() && styles.disabled,
+              ]}>
+              <ThemedText type="small" themeColor="textSecondary">
+                Email me a sign-in code instead
+              </ThemedText>
+            </Pressable>
+          )}
 
           {/* Below the email form, not above it. Apple's own guidance puts its
               button with the other sign-in options rather than ahead of them,
               and the existing account path stays where returning users already
               look. The divider only renders when the button does — a rule
               labelled "or" with nothing after it is worse than no rule. */}
-          <AppleSignInButton onPress={handleAppleSignIn} />
+          {!codeSentTo && <AppleSignInButton onPress={handleAppleSignIn} />}
         </ThemedView>
       )}
 
