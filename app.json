@@ -12,7 +12,8 @@
       "bundleIdentifier": "com.mikeylucca.musicmap",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
@@ -53,7 +54,8 @@
         {
           "locationWhenInUsePermission": "Music Map uses your location to show how far concerts are from you."
         }
-      ]
+      ],
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true,

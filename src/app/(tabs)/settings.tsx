@@ -2,6 +2,7 @@ import { router, Link } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
+import { AppleSignInButton } from '@/components/apple-sign-in-button';
 import { ScreenScaffold } from '@/components/screen-scaffold';
 import { SettingsRow } from '@/components/settings-row';
 import { ThemedText } from '@/components/themed-text';
@@ -15,8 +16,17 @@ import { useTheme } from '@/hooks/use-theme';
 import { CITIES } from '@/types/concert';
 
 export default function SettingsScreen() {
-  const { session, isLoading, error, isSupabaseConfigured, signIn, signUp, signOut, resetPassword } =
-    useAuth();
+  const {
+    session,
+    isLoading,
+    error,
+    isSupabaseConfigured,
+    signIn,
+    signUp,
+    signInWithApple,
+    signOut,
+    resetPassword,
+  } = useAuth();
   const userId = session?.user.id ?? null;
   const { profile, error: profileError, updateProfile } = useProfile(userId);
   // Counts only — the lists themselves live on settings/saved.tsx now.
@@ -43,6 +53,14 @@ export default function SettingsScreen() {
       const result = await signUp(email, password);
       if (result === 'confirmation-required') setConfirmationPendingEmail(email);
     }
+    setIsSubmitting(false);
+  }
+
+  async function handleAppleSignIn() {
+    setIsSubmitting(true);
+    setConfirmationPendingEmail(null);
+    setResetEmailSent(null);
+    await signInWithApple();
     setIsSubmitting(false);
   }
 
@@ -294,6 +312,13 @@ export default function SettingsScreen() {
               {isSubmitting ? 'Please wait…' : mode === 'signIn' ? 'Sign In' : 'Sign Up'}
             </ThemedText>
           </Pressable>
+
+          {/* Below the email form, not above it. Apple's own guidance puts its
+              button with the other sign-in options rather than ahead of them,
+              and the existing account path stays where returning users already
+              look. The divider only renders when the button does — a rule
+              labelled "or" with nothing after it is worse than no rule. */}
+          <AppleSignInButton onPress={handleAppleSignIn} />
         </ThemedView>
       )}
 
