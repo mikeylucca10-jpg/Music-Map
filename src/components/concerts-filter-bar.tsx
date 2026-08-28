@@ -6,7 +6,7 @@ import { NightDensityStrip, type WeekNight } from '@/components/night-density-st
 import { SelectSheet, type SelectOption, type SelectSection } from '@/components/select-sheet';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, MinTouchTarget, Radius, Spacing } from '@/constants/theme';
 import { Category } from '@/hooks/use-concerts-filters';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDateKeyLabel } from '@/lib/format-date';
@@ -47,6 +47,12 @@ type ConcertsFilterBarProps = {
   onMaxMilesChange?: (miles: number | null) => void;
   distanceOptions?: readonly number[];
   canFilterByDistance?: boolean;
+  /**
+   * 'pills' (default) is the list screen's row of dropdown pills. 'summary'
+   * is the map's: where and when stated in a card above a lighter filter row,
+   * which reads better when the filter bar is the only text over a map.
+   */
+  variant?: 'pills' | 'summary';
   /** The visible week's seven nights with per-night show counts, for the strip. */
   weekNights?: WeekNight[];
 };
@@ -69,6 +75,7 @@ export function ConcertsFilterBar({
   canGoNextWeek = false,
   weekNavRelevant = true,
   setWeekOffset,
+  variant = 'pills',
   weekNights,
   followingOnly = false,
   onFollowingOnlyChange,
@@ -168,18 +175,73 @@ export function ConcertsFilterBar({
         ]
       : undefined;
 
+  // Where and when, stated rather than folded into two truncating pills.
+  //
+  // On the map the filter bar is the only text on screen, and three pills side
+  // by side spend their width on chrome — a dropdown arrow each, a label each,
+  // and "New York" abbreviated to fit. A summary card says the same thing in
+  // full at a glance, which is what you want when the rest of the screen is a
+  // map you are reading rather than a list you are scanning.
+  //
+  // Two stacked rows rather than one control, because they open different
+  // sheets: the place and the time are separate questions and pretending
+  // otherwise means a second menu inside the first.
+  const summaryHeader = (
+    <View style={[styles.summaryCard, { backgroundColor: theme.backgroundElement }]}>
+      <Pressable
+        onPress={() => setOpenSheet('city')}
+        accessibilityRole="button"
+        accessibilityLabel={`Where: ${cityPillLabel}. Change city or borough`}
+        style={({ pressed }) => [styles.summaryRow, pressed && styles.pressed]}>
+        <ThemedText type="subtitle" numberOfLines={1} style={styles.summaryPlace}>
+          {cityPillLabel}
+        </ThemedText>
+        <ThemedText allowFontScaling={false} themeColor="textSecondary" style={styles.summaryCaret}>
+          ▾
+        </ThemedText>
+      </Pressable>
+
+      {onDateChange && (
+        <Pressable
+          onPress={() => setOpenSheet('date')}
+          accessibilityRole="button"
+          accessibilityLabel={`Date: ${selectedDateLabel}. Change date`}
+          style={({ pressed }) => [styles.summaryRow, pressed && styles.pressed]}>
+          <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+            {selectedDateKey ? selectedDateLabel : (weekLabel ?? selectedDateLabel)}
+          </ThemedText>
+          {/* Inside the card, not loose on the row below it. Out here it was
+              grey text sitting directly on map tiles with nothing behind it —
+              legible over a dark park, invisible over a pale street grid. The
+              card is the only guaranteed background on this screen. */}
+          {typeof resultCount === 'number' && (
+            <ThemedText type="small" themeColor="textSecondary">
+              {resultCount === 1 ? '1 show' : `${resultCount} shows`}
+            </ThemedText>
+          )}
+        </Pressable>
+      )}
+    </View>
+  );
+
   return (
     <View style={styles.container}>
-      <View style={styles.pillsRow}>
-        <FilterPill
-          label={cityPillLabel}
-          onPress={() => setOpenSheet('city')}
-          active={Boolean(selectedBorough)}
-          opens
-          accessibilityLabel={`Where: ${cityPillLabel}. Change city or borough`}
-        />
+      {variant === 'summary' && summaryHeader}
 
-        {onDateChange && (
+      <View style={styles.pillsRow}>
+        {/* Both live in the summary card in that variant, so rendering them
+            here too would state where and when twice in a row. */}
+        {variant === 'pills' && (
+          <FilterPill
+            label={cityPillLabel}
+            onPress={() => setOpenSheet('city')}
+            active={Boolean(selectedBorough)}
+            opens
+            accessibilityLabel={`Where: ${cityPillLabel}. Change city or borough`}
+          />
+        )}
+
+        {variant === 'pills' && onDateChange && (
           <FilterPill
             label={selectedDateLabel}
             onPress={() => setOpenSheet('date')}
@@ -222,6 +284,7 @@ export function ConcertsFilterBar({
             }
           />
         )}
+
       </View>
 
       {/* Only exists while something is actually narrowing the list, which is
@@ -388,6 +451,23 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.7,
   },
+  summaryCard: {
+    borderRadius: Radius.card,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    gap: Spacing.half,
+    marginBottom: Spacing.two,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    // Real height rather than hitSlop, which web ignores — these two rows are
+    // the only way to change city or date on this screen.
+    minHeight: MinTouchTarget - 8,
+  },
+  summaryPlace: { flexShrink: 1 },
+  summaryCaret: { fontSize: 16 },
   pillsRow: {
     flexDirection: 'row',
     gap: Spacing.one,
