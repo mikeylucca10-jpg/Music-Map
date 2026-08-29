@@ -14,6 +14,7 @@ import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ExternalLink } from '@/components/external-link';
+import { ConcertStatusTag, isOffSale } from '@/components/concert-status-tag';
 import { FollowChip } from '@/components/follow-chip';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -168,6 +169,11 @@ export default function ConcertScreen() {
         <View style={styles.body}>
           <View style={styles.titleRow}>
             <View style={styles.titleColumn}>
+              {/* Above the title here, unlike the card. This is the screen
+                  someone reads before deciding, so if the show is not happening
+                  that has to be the first thing they see rather than something
+                  found after scrolling past the poster and the lineup. */}
+              <ConcertStatusTag status={concert.status} />
               <ThemedText type="subtitle">{concert.name}</ThemedText>
               {concert.artist && concert.artist !== concert.name && (
                 <ThemedText type="small" themeColor="textSecondary">
@@ -288,7 +294,15 @@ export default function ConcertScreen() {
               thing: taking this show out of the app and into something the
               person already uses to run their life. Saving is a bookmark
               nothing reminds you of; a calendar entry surfaces itself on the
-              day, in the app they already trust for that. */}
+              day, in the app they already trust for that.
+
+              Withheld for a cancelled or postponed show. A calendar entry is a
+              promise that something is happening, and this one would surface
+              itself on the day to remind someone about a show that is not —
+              worse than the ticket link, because it arrives later, out of
+              context, with nothing on screen to correct it. Directions stay:
+              the venue is still there, and someone may be going anyway. */}
+          {!isOffSale(concert.status) && (
           <Pressable
             onPress={() => addToCalendar(concert)}
             disabled={calendarState === 'working'}
@@ -315,6 +329,7 @@ export default function ConcertScreen() {
               </ThemedText>
             </ThemedView>
           </Pressable>
+          )}
 
           {/* Only ever shown after a real failure. A denied permission is a
               deliberate answer rather than an error, so it is stated plainly
@@ -327,14 +342,38 @@ export default function ConcertScreen() {
             </ThemedText>
           )}
 
-          <ThemedText type="eyebrow" themeColor="textSecondary" style={styles.sectionHeading}>
-            Buy Tickets
-          </ThemedText>
-          <View style={styles.sourceList}>
-            {getTicketSources(concert).map((source) => (
-              <TicketSourceRow key={source.id} source={source} />
-            ))}
-          </View>
+          {/* Ticket links are withheld for a cancelled or postponed show rather
+              than shown alongside a warning. This is the screen someone buys
+              from, and a row that says "Buy Tickets" under a "Cancelled" tag is
+              an invitation to spend money on a show that is not happening —
+              the app should not be the reason that goes wrong.
+
+              Rescheduled still shows its links: the show is going ahead, at a
+              time the feed has already updated, so the link is the right place
+              to check the new date. */}
+          {isOffSale(concert.status) ? (
+            <ThemedView type="backgroundElement" style={styles.offSaleCard}>
+              <ThemedText type="smallBold">
+                {concert.status === 'cancelled' ? 'This show is cancelled' : 'This show is postponed'}
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary" style={styles.offSaleBody}>
+                {concert.status === 'cancelled'
+                  ? 'Tickets are no longer being sold. If you already bought one, refunds go through wherever you bought it.'
+                  : 'A new date has not been listed yet. Check back, or ask wherever you bought your ticket.'}
+              </ThemedText>
+            </ThemedView>
+          ) : (
+            <>
+              <ThemedText type="eyebrow" themeColor="textSecondary" style={styles.sectionHeading}>
+                Buy Tickets
+              </ThemedText>
+              <View style={styles.sourceList}>
+                {getTicketSources(concert).map((source) => (
+                  <TicketSourceRow key={source.id} source={source} />
+                ))}
+              </View>
+            </>
+          )}
         </View>
       </ScrollView>
 
@@ -448,6 +487,8 @@ const styles = StyleSheet.create({
   },
   sectionHeading: { marginTop: Spacing.three },
   sourceList: { gap: Spacing.two },
+  offSaleCard: { gap: Spacing.two, borderRadius: Radius.card, padding: Spacing.four },
+  offSaleBody: { lineHeight: 20 },
   sourceRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
+import { ConcertStatusTag } from '@/components/concert-status-tag';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts, PosterGradient, Radius, Spacing } from '@/constants/theme';
@@ -138,6 +139,11 @@ function ConcertListCardComponent({
           {formatConcertDateTimeWithExtras(concert.startDateTime, concert.alsoStartsAt, concert.timezone)} · {concert.venueName}
           {distanceLabel ? ` · ${distanceLabel}` : ''}
         </ThemedText>
+        {/* Below the logistics line, not above the title: it qualifies the show
+            rather than naming it, and putting it first would make every card
+            scan as a status board. Renders nothing for the ~98% of listings
+            that are simply on sale. */}
+        <ConcertStatusTag status={concert.status} />
       </View>
       {onToggleSave && (
         <Pressable

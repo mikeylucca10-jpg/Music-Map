@@ -20,11 +20,31 @@ export type ConcertClassification = {
   subGenre?: string;
 };
 
+/**
+ * Whether the show is actually happening, from the source's own status field.
+ *
+ * Not cosmetic. Measured on the live NYC feed: `dates.status.code` is present
+ * on 131 of 131 events, and 2 of them were not `onsale` — one cancelled, one
+ * rescheduled. Both were being listed as ordinary shows with a working "Buy
+ * Tickets" row, which is the worst state this app can be in: sending someone
+ * out to a show that is not happening is a harder failure than showing them
+ * nothing at all.
+ *
+ * Deliberately kept as a union of the source's own codes rather than reduced to
+ * a boolean. "Cancelled" and "rescheduled" mean different things to whoever is
+ * deciding whether to go, and collapsing them would throw that away.
+ */
+export type ConcertStatus = 'onsale' | 'offsale' | 'cancelled' | 'postponed' | 'rescheduled';
+
 export type Concert = {
   id: string;
   source: ConcertSource;
   name: string;
   artist?: string;
+  /** Absent when the source does not say — treated as on sale, since most
+   *  sources have no status field at all and refusing to show them would be
+   *  worse than assuming the common case. */
+  status?: ConcertStatus;
   /**
    * The source's own stable id for the headliner, when it has one.
    *
@@ -98,6 +118,10 @@ export type ConcertSummary = Pick<
   | 'name'
   | 'artist'
   | 'artistId'
+  // Carried into the summary because the card, the detail screen and a saved
+  // concert all have to say when a show is not happening. A saved show that
+  // gets cancelled must not read as normal next time it is opened.
+  | 'status'
   | 'lineup'
   | 'url'
   | 'startDateTime'

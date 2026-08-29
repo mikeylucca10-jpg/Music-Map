@@ -1,5 +1,5 @@
 import { PosterDisplayWidth, PosterImageScale } from '@/constants/theme';
-import { City, Concert } from '@/types/concert';
+import { City, Concert, ConcertStatus } from '@/types/concert';
 
 
 /** Source pixels to ask for. Both inputs live in constants/theme.ts. */
@@ -34,7 +34,7 @@ type TicketmasterEvent = {
   id: string;
   name: string;
   url: string;
-  dates?: { start?: { dateTime?: string }; timezone?: string };
+  dates?: { start?: { dateTime?: string }; timezone?: string; status?: { code?: string } };
   images?: TicketmasterImage[];
   priceRanges?: { min?: number; max?: number; currency?: string }[];
   ageRestrictions?: { legalAgeEnforced?: boolean };
@@ -133,6 +133,29 @@ export function isLikelyElectronic(
  * input, nothing large enough, missing dimensions) would otherwise need a
  * mocked network to exercise.
  */
+/**
+ * Maps Ticketmaster's status code onto our union, or undefined.
+ *
+ * Unknown values become undefined rather than passed through, so a code this
+ * app has never seen degrades to "treated as normal" instead of rendering a raw
+ * API string at the user. Measured on the live NYC feed: every one of 131
+ * events carried a code — 129 onsale, one cancelled, one rescheduled.
+ *
+ * Exported for the tests, which pin the mapping and the unknown-code fallback.
+ */
+export function normalizeStatus(code: string | undefined): ConcertStatus | undefined {
+  switch (code?.toLowerCase()) {
+    case 'onsale':
+    case 'offsale':
+    case 'cancelled':
+    case 'postponed':
+    case 'rescheduled':
+      return code.toLowerCase() as ConcertStatus;
+    default:
+      return undefined;
+  }
+}
+
 export function pickImageForWidth(
   images: TicketmasterImage[] | undefined,
   targetWidth: number,
@@ -364,6 +387,10 @@ function normalizeEvents(data: TicketmasterResponse): Concert[] {
       imageUrl: pickImageForWidth(event.images, POSTER_TARGET_WIDTH),
       isFree: priceRange?.min === 0,
       is21Plus: event.ageRestrictions?.legalAgeEnforced === true,
+      // Present on 131/131 live NYC events, so this is a real field rather than
+      // an optimistic read. Lowercased because the API returns the code in
+      // lower case already but has no contract saying it always will.
+      status: normalizeStatus(event.dates?.status?.code),
       priceMin: priceRange?.min,
       priceMax: priceRange?.max,
       priceCurrency: priceRange?.currency,
