@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 import { useCallback, useEffect, useState } from 'react';
 
 import { readCache, writeCache } from '@/lib/cache';
-import { registerPushToken } from '@/services/push-tokens';
+import { getCurrentPushToken, registerPushToken } from '@/services/push-tokens';
 
 const CHOICE_CACHE_KEY = 'notification-prompt-choice';
 
@@ -120,17 +120,62 @@ export function usePushNotifications(userId: string | null) {
       const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
       // Permission can be granted while there is nobody to attribute the token
       // to — the sheet is reachable before sign-in completes. The grant still
-      // stands; registration simply happens on the next launch with a session.
+      // stands; the launch effect below registers it once a session exists.
       if (userId && token) {
-        await registerPushToken(userId, token, Platform.OS === 'ios' ? 'ios' : 'android');
+        try {
+          await registerPushToken(userId, token, Platform.OS === 'ios' ? 'ios' : 'android');
+        } catch (registerError) {
+          // Deliberately does NOT set 'denied'. Permission was granted; only the
+          // write failed. Reporting it as denied told the user notifications
+          // were blocked in their device settings — untrue and unactionable —
+          // and worse, it was terminal: on the next launch the OS reports
+          // granted, so the enable button hides and shouldAsk goes false,
+          // leaving no path in the app that could ever register the token. The
+          // launch effect below is what retries this.
+          console.warn('Push token registration failed; will retry on next launch', registerError);
+        }
       }
       return true;
     } catch (error) {
-      console.warn('Push registration failed', error);
+      console.warn('Push permission request failed', error);
       setStatus('denied');
       return false;
     }
   }, [unsupportedReason, userId]);
+
+  /**
+   * Re-registers the token on every launch where permission is already granted.
+   *
+   * `push-tokens.ts` has always documented that registration "runs on every
+   * launch" — it did not. The only call site was the soft-ask's request(), and
+   * both routes to that are closed once permission is granted: shouldAsk needs
+   * status 'idle', and the Alerts screen only offers the button while status is
+   * not 'granted'. So a token that changed after a reinstall or a device
+   * restore was never rewritten, and the old row stayed until Expo returned
+   * DeviceNotRegistered and retired it — after which that device was
+   * unreachable for good, with nothing in the app able to fix it.
+   *
+   * Upsert on the token makes a repeat write a no-op, so running this every
+   * launch costs one round trip and buys self-healing.
+   */
+  useEffect(() => {
+    if (unsupportedReason || status !== 'granted' || !userId) return;
+    let cancelled = false;
+    (async () => {
+      const token = await getCurrentPushToken();
+      if (cancelled || !token) return;
+      try {
+        await registerPushToken(userId, token, Platform.OS === 'ios' ? 'ios' : 'android');
+      } catch (error) {
+        // Silent by design: this is background repair, and the user did not ask
+        // for it. The next launch tries again.
+        console.warn('Launch push re-registration failed', error);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [unsupportedReason, status, userId]);
 
   const decline = useCallback(async () => {
     await writeCache<StoredChoice>(CHOICE_CACHE_KEY, 'declined');

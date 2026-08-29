@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { releaseCurrentPushToken } from '@/services/push-tokens';
 
 // Where the reset-password email link sends the user back to. Web computes
 // this from the current origin (works for both localhost in dev and
@@ -183,6 +184,16 @@ export function useAuth() {
 
   const signOut = useCallback(async () => {
     setError(null);
+    // Before signOut, not after: the delete is scoped by RLS to the signed-in
+    // user, so once the session is gone it silently matches nothing.
+    //
+    // Without it the row stays mapped to the departing account, and
+    // alerts_due() joins push_tokens on user_id — so the next person to sign in
+    // on this device keeps receiving the previous account's alerts, which name
+    // the artists and venues that account follows. Their own registration
+    // cannot repair it either: the upsert conflicts on the token, and the RLS
+    // check refuses an update to a row owned by someone else.
+    await releaseCurrentPushToken();
     const { error: signOutError } = await supabase.auth.signOut();
     if (signOutError) setError(signOutError.message);
   }, []);

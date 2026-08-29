@@ -1,0 +1,32 @@
+-- Actually revoke increment_ask_usage() from the client roles.
+--
+-- 20260816120000 revoked it `from public` only, and reasoned about the PUBLIC
+-- pseudo-role default. That misses how Supabase bootstraps a project: it runs
+--
+--   alter default privileges in schema public
+--     grant all on functions to postgres, anon, authenticated, service_role;
+--
+-- so a function created in `public` receives *explicit* EXECUTE grants to anon
+-- and authenticated. Revoking from PUBLIC does not touch an explicit grant to a
+-- named role, so both kept it.
+--
+-- Every other security-definer function in this schema already names all three
+-- roles — ingest_concerts, alerts_due, is_quiet_hours, mark_alerts_sent,
+-- disable_push_token, queue_tomorrow_alerts. This one was the exception, and
+-- CLAUDE.md asserted the protection was in place, which made it invisible.
+--
+-- What it allowed: the function is security definer, so it bypasses the
+-- SELECT-only RLS on ask_usage. Anyone holding the anon key — which ships in
+-- the client bundle by design — could call it with someone else's user id and
+-- push that person past the daily Ask cap, or write unbounded rows for any
+-- valid auth.users id. It cannot lower a counter, so this is denial of service
+-- against other users rather than a way to reset your own limit.
+--
+-- Impact today is near zero because Ask is parked and its Edge Function was
+-- never deployed. The defect is that the mitigation the docs relied on did not
+-- exist, and the same slip on a function that mattered would be severe.
+revoke all on function public.increment_ask_usage(uuid) from public, anon, authenticated;
+
+-- Re-granted, not assumed: the revoke above strips service_role too if it was
+-- ever granted via PUBLIC, and the Edge Function's rpc() call needs it.
+grant execute on function public.increment_ask_usage(uuid) to service_role;

@@ -5,6 +5,7 @@ import { useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { FilterStateProvider } from '@/hooks/use-filter-state';
+import { useNotificationRouting } from '@/hooks/use-notification-routing';
 import { Colors, DisplayFontFamily } from '@/constants/theme';
 
 SplashScreen.preventAutoHideAsync();
@@ -17,6 +18,10 @@ SplashScreen.preventAutoHideAsync();
  */
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  // Tapping an alert opens the show it names. Registered at the root so it is
+  // listening no matter which tab the app resumes into, and so a cold start
+  // launched *by* a notification is caught too.
+  useNotificationRouting();
 
   // Archivo Expanded (SemiBold 600) carries the screen titles and the night
   // strip. Dropped from ExtraBold 800 because a lighter display weight reads as

@@ -1,4 +1,52 @@
+import Constants from 'expo-constants';
+import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
+
 import { supabase } from '@/lib/supabase';
+
+/**
+ * This device's Expo push token, or null where there cannot be one.
+ *
+ * Fetched fresh rather than remembered. The token can change after a reinstall
+ * or a restore, and a stale copy is exactly what leaves a device registered
+ * under an address that no longer reaches it.
+ *
+ * Returns null instead of throwing on every failure path — no project id, no
+ * permission, an unavailable service. Every caller here is doing bookkeeping
+ * around something else (a launch, a sign-out), and none of them should fail
+ * because a token could not be read.
+ */
+export async function getCurrentPushToken(): Promise<string | null> {
+  if (Platform.OS === 'web') return null;
+  try {
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+    if (!projectId) return null;
+    const { data } = await Notifications.getExpoPushTokenAsync({ projectId });
+    return data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Releases this device's token, for sign-out.
+ *
+ * Must run *before* supabase.auth.signOut(): the delete is scoped by RLS to the
+ * signed-in user, so after the session is gone it silently matches nothing.
+ *
+ * Swallows its own failures on purpose. Sign-out has to succeed — leaving
+ * someone signed in because a cleanup call failed is worse than the stale row
+ * this is trying to remove, and the row is recoverable on the next launch.
+ */
+export async function releaseCurrentPushToken(): Promise<void> {
+  try {
+    const token = await getCurrentPushToken();
+    if (token) await unregisterPushToken(token);
+  } catch {
+    // Intentionally ignored — see above.
+  }
+}
 
 /**
  * Registers this device's Expo push token against the signed-in user.
