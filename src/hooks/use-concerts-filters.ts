@@ -473,12 +473,28 @@ export function useConcertsFilters(
     if (!soonest) return null;
 
     // How many weeks forward that show sits, so the jump is one setWeekOffset.
-    const { weekStart: currentStart } = getWeekWindow(0, now);
-    const showDate = new Date(soonest.startDateTime);
-    const weeksAhead = Math.floor(
-      (showDate.getTime() - currentStart.getTime()) / (7 * 24 * 60 * 60 * 1000),
-    );
-    return { concert: soonest, weekOffset: Math.min(MAX_WEEKS_AHEAD, Math.max(0, weeksAhead)) };
+    //
+    // Found by asking the same predicate the list uses, rather than dividing
+    // elapsed milliseconds by a fixed seven days. Two reasons that matters.
+    //
+    // The fixed constant was wrong across a DST boundary: a week of wall clock
+    // is 167 hours in March, so a show genuinely two weeks out floored to one
+    // and the button jumped to a week that did not contain it. Worse, the
+    // arithmetic answered on a different calendar from isWithinActiveWindow, so
+    // near a week edge it could land on a week that excluded the show for the
+    // timezone reason too — offering a jump to an empty week, which is exactly
+    // the dead end this control exists to prevent.
+    //
+    // Walking is bounded by MAX_WEEKS_AHEAD (8), so this is at most eight cheap
+    // comparisons, and it cannot disagree with the list by construction.
+    let weeksAhead = 0;
+    while (
+      weeksAhead < MAX_WEEKS_AHEAD &&
+      !isWithinActiveWindow(soonest, weeksAhead, now, city.timezone)
+    ) {
+      weeksAhead += 1;
+    }
+    return { concert: soonest, weekOffset: weeksAhead };
     // city.timezone is a real dependency now that the category match resolves on
     // the venue's calendar — without it, switching city would keep offering a
     // "next show" computed against the previous city's clock.
