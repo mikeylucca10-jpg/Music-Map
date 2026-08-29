@@ -65,19 +65,19 @@ describe('getWeekWindow', () => {
 
 describe('isThisWeekend', () => {
   it('includes Friday through Sunday of the current week', () => {
-    expect(isThisWeekend(localIso(2026, 7, 14), THURSDAY, 0)).toBe(true);
-    expect(isThisWeekend(localIso(2026, 7, 15), THURSDAY, 0)).toBe(true);
-    expect(isThisWeekend(localIso(2026, 7, 16), THURSDAY, 0)).toBe(true);
+    expect(isThisWeekend(localIso(2026, 7, 14), THURSDAY, 0, 'America/New_York')).toBe(true);
+    expect(isThisWeekend(localIso(2026, 7, 15), THURSDAY, 0, 'America/New_York')).toBe(true);
+    expect(isThisWeekend(localIso(2026, 7, 16), THURSDAY, 0, 'America/New_York')).toBe(true);
   });
 
   it('excludes weekdays', () => {
-    expect(isThisWeekend(localIso(2026, 7, 13), THURSDAY, 0)).toBe(false);
-    expect(isThisWeekend(localIso(2026, 7, 17), THURSDAY, 0)).toBe(false);
+    expect(isThisWeekend(localIso(2026, 7, 13), THURSDAY, 0, 'America/New_York')).toBe(false);
+    expect(isThisWeekend(localIso(2026, 7, 17), THURSDAY, 0, 'America/New_York')).toBe(false);
   });
 
   it('shifts with the week offset so paging weeks also pages the weekend', () => {
-    expect(isThisWeekend(localIso(2026, 7, 21), THURSDAY, 1)).toBe(true);
-    expect(isThisWeekend(localIso(2026, 7, 14), THURSDAY, 1)).toBe(false);
+    expect(isThisWeekend(localIso(2026, 7, 21), THURSDAY, 1, 'America/New_York')).toBe(true);
+    expect(isThisWeekend(localIso(2026, 7, 14), THURSDAY, 1, 'America/New_York')).toBe(false);
   });
 
   // The reason weeks are Monday-Sunday rather than Sunday-Saturday: a
@@ -90,7 +90,7 @@ describe('isThisWeekend', () => {
 
       for (let candidate = 3; candidate <= 24; candidate++) {
         const iso = localIso(2026, 7, candidate);
-        if (!isThisWeekend(iso, now, 0)) continue;
+        if (!isThisWeekend(iso, now, 0, 'America/New_York')) continue;
         const date = new Date(iso);
         expect(date.getTime()).toBeGreaterThanOrEqual(weekStart.getTime());
         expect(date.getTime()).toBeLessThanOrEqual(weekEnd.getTime());
@@ -103,30 +103,33 @@ describe('isWithinActiveWindow', () => {
   const laterThisMonth = makeConcert({ startDateTime: localIso(2026, 7, 25) });
 
   it('scopes normal categories to the current week', () => {
-    expect(isWithinActiveWindow(makeConcert(), 'All', 0, THURSDAY)).toBe(true);
-    expect(isWithinActiveWindow(laterThisMonth, 'All', 0, THURSDAY)).toBe(false);
+    expect(isWithinActiveWindow(makeConcert(), 0, THURSDAY, 'America/New_York')).toBe(true);
+    expect(isWithinActiveWindow(laterThisMonth, 0, THURSDAY, 'America/New_York')).toBe(false);
   });
 
   it('scopes every category to the week, with no exceptions', () => {
     // Pop-ups used to get a whole calendar month here because a week was
     // usually empty for it. It was empty because the keyword matched nothing at
     // all; the category is gone and the exception went with it.
-    for (const category of ['All', 'This Weekend', 'Day Parties', 'Late Night', '21+', 'Free'] as const) {
-      expect(isWithinActiveWindow(laterThisMonth, category, 0, THURSDAY)).toBe(false);
-    }
+    // The window no longer takes a category at all — it used to, solely for the
+    // Pop-ups month exception, and the parameter outlived the rule. That it is
+    // category-independent by construction *is* the assertion now; there is no
+    // longer a per-category branch that could grow an exception back.
+    expect(isWithinActiveWindow(laterThisMonth, 0, THURSDAY, 'America/New_York')).toBe(false);
+    expect(isWithinActiveWindow(makeConcert(), 0, THURSDAY, 'America/New_York')).toBe(true);
   });
 });
 
 describe('matchesCategory', () => {
   it('matches the real API-backed fields', () => {
-    expect(matchesCategory(makeConcert({ is21Plus: true }), '21+', THURSDAY, 0)).toBe(true);
-    expect(matchesCategory(makeConcert({ is21Plus: false }), '21+', THURSDAY, 0)).toBe(false);
-    expect(matchesCategory(makeConcert({ isFree: true }), 'Free', THURSDAY, 0)).toBe(true);
-    expect(matchesCategory(makeConcert(), 'Free', THURSDAY, 0)).toBe(false);
+    expect(matchesCategory(makeConcert({ is21Plus: true }), '21+', THURSDAY, 0, 'America/New_York')).toBe(true);
+    expect(matchesCategory(makeConcert({ is21Plus: false }), '21+', THURSDAY, 0, 'America/New_York')).toBe(false);
+    expect(matchesCategory(makeConcert({ isFree: true }), 'Free', THURSDAY, 0, 'America/New_York')).toBe(true);
+    expect(matchesCategory(makeConcert(), 'Free', THURSDAY, 0, 'America/New_York')).toBe(false);
   });
 
   it('lets everything through on All', () => {
-    expect(matchesCategory(makeConcert(), 'All', THURSDAY, 0)).toBe(true);
+    expect(matchesCategory(makeConcert(), 'All', THURSDAY, 0, 'America/New_York')).toBe(true);
   });
 
   // Day Parties and Late Night read the clock rather than the title. The
@@ -149,11 +152,11 @@ describe('matchesCategory', () => {
       timezone: 'America/New_York',
     });
 
-    expect(matchesCategory(nycAfternoon, 'Day Parties', THURSDAY, 0)).toBe(true);
-    expect(matchesCategory(nycLate, 'Day Parties', THURSDAY, 0)).toBe(false);
-    expect(matchesCategory(nycLate, 'Late Night', THURSDAY, 0)).toBe(true);
-    expect(matchesCategory(nycEvening, 'Late Night', THURSDAY, 0)).toBe(false);
-    expect(matchesCategory(nycEvening, 'Day Parties', THURSDAY, 0)).toBe(false);
+    expect(matchesCategory(nycAfternoon, 'Day Parties', THURSDAY, 0, 'America/New_York')).toBe(true);
+    expect(matchesCategory(nycLate, 'Day Parties', THURSDAY, 0, 'America/New_York')).toBe(false);
+    expect(matchesCategory(nycLate, 'Late Night', THURSDAY, 0, 'America/New_York')).toBe(true);
+    expect(matchesCategory(nycEvening, 'Late Night', THURSDAY, 0, 'America/New_York')).toBe(false);
+    expect(matchesCategory(nycEvening, 'Day Parties', THURSDAY, 0, 'America/New_York')).toBe(false);
   });
 
   // Outdoors reads the venue, never the title. That is the whole reason it
@@ -219,6 +222,7 @@ describe('matchesCategory', () => {
         'Outdoors',
         THURSDAY,
         0,
+        'America/New_York',
       ),
     ).toBe(false);
   });
@@ -234,7 +238,7 @@ describe('matchesCategory', () => {
       startDateTime: '2026-08-20T22:00:00Z',
       timezone: 'America/New_York',
     });
-    expect(matchesCategory(laAfternoon, 'Day Parties', THURSDAY, 0)).toBe(true);
-    expect(matchesCategory(nycEvening, 'Day Parties', THURSDAY, 0)).toBe(false);
+    expect(matchesCategory(laAfternoon, 'Day Parties', THURSDAY, 0, 'America/New_York')).toBe(true);
+    expect(matchesCategory(nycEvening, 'Day Parties', THURSDAY, 0, 'America/New_York')).toBe(false);
   });
 });

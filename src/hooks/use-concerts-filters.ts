@@ -170,8 +170,18 @@ export function getWeekWindow(weekOffset: number, now: Date) {
   return { weekStart, weekEnd };
 }
 
-export function isThisWeekend(startDateTime: string, now: Date, weekOffset: number) {
-  const date = new Date(startDateTime);
+// Same calendar rule as isWithinActiveWindow, for the same reason. Friday to
+// Sunday is a question about the venue's nights, not the viewer's clock: a
+// Sunday 10pm show in Los Angeles is Sunday there and Monday in New York, and
+// comparing instants dropped it from "This Weekend" for anyone further east —
+// the weekend filter losing Sunday nights being about the worst version of
+// this bug in an app for late shows.
+export function isThisWeekend(
+  startDateTime: string,
+  now: Date,
+  weekOffset: number,
+  timeZone: string,
+) {
   const day = now.getDay();
   // Days since the most recent Friday (Fri=0, Sat=1, Sun=2, Mon=3, ... Thu=6).
   const daysSinceFriday = (day + 2) % 7;
@@ -182,8 +192,15 @@ export function isThisWeekend(startDateTime: string, now: Date, weekOffset: numb
   fridayStart.setHours(0, 0, 0, 0);
   const sundayEnd = new Date(fridayStart);
   sundayEnd.setDate(fridayStart.getDate() + 2);
-  sundayEnd.setHours(23, 59, 59, 999);
-  return date >= fridayStart && date <= sundayEnd;
+
+  const fridayKey = dateKeyFor(
+    fridayStart.getFullYear(),
+    fridayStart.getMonth(),
+    fridayStart.getDate(),
+  );
+  const sundayKey = dateKeyFor(sundayEnd.getFullYear(), sundayEnd.getMonth(), sundayEnd.getDate());
+  const concertKey = getConcertDateKey(new Date(startDateTime), timeZone);
+  return concertKey >= fridayKey && concertKey <= sundayKey;
 }
 
 /**
@@ -208,12 +225,18 @@ export function matchesCategory(
   category: Category,
   now: Date,
   weekOffset: number,
+  fallbackTimeZone: string,
 ) {
   switch (category) {
     case 'All':
       return true;
     case 'This Weekend':
-      return isThisWeekend(concert.startDateTime, now, weekOffset);
+      return isThisWeekend(
+        concert.startDateTime,
+        now,
+        weekOffset,
+        concert.timezone ?? fallbackTimeZone,
+      );
     case '21+':
       return concert.is21Plus === true;
     case 'Free':
@@ -241,15 +264,42 @@ export function matchesCategory(
 // all, and with that category gone the exception goes with it — every category
 // is now week-scoped, which is one fewer rule and one fewer thing for the week
 // navigator to special-case.
+// Compared as calendar days in the *venue's* zone, not as an instant against
+// device-local midnight.
+//
+// The instant comparison put two different calendars on one screen. The night
+// strip buckets by getConcertDateKey(startDateTime, venue zone), and so does
+// the branch that runs once a night is tapped — but this fall-through compared
+// the raw instant against boundaries built from the viewer's own clock. A New
+// York device browsing Los Angeles therefore disagreed with itself in both
+// directions: a Sunday 9pm PDT show was counted on Sunday's bar and excluded
+// from the list beneath it, while a show late on the *previous* Sunday was
+// listed with no bar accounting for it. The only recovery was tapping the exact
+// bar, which routes through the venue-zone branch — a tap nobody has reason to
+// think is needed.
+//
+// It landed hardest on exactly the shows this app is for: weekEnd is Sunday
+// 23:59:59 in the viewer's zone, which is 20:59:59 in LA, so every late set
+// past 9pm Sunday fell off. Five of the six cities are west of New York.
+//
+// Date keys are YYYY-MM-DD, so lexical >= and <= are correct calendar
+// comparisons and no instant arithmetic is involved. getWeekWindow itself stays
+// device-local on purpose: "which week is it now" is a question about the person
+// holding the phone, and only the *concert's* side needed the venue's calendar.
 export function isWithinActiveWindow(
   concert: Concert,
-  category: Category,
   weekOffset: number,
   now: Date,
+  fallbackTimeZone: string,
 ) {
-  const date = new Date(concert.startDateTime);
   const { weekStart, weekEnd } = getWeekWindow(weekOffset, now);
-  return date >= weekStart && date <= weekEnd;
+  const startKey = dateKeyFor(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate());
+  const endKey = dateKeyFor(weekEnd.getFullYear(), weekEnd.getMonth(), weekEnd.getDate());
+  const concertKey = getConcertDateKey(
+    new Date(concert.startDateTime),
+    concert.timezone ?? fallbackTimeZone,
+  );
+  return concertKey >= startKey && concertKey <= endKey;
 }
 
 function isWithinBorough(concert: Concert, borough: NonNullable<City['boroughs']>[number]) {
@@ -373,7 +423,7 @@ export function useConcertsFilters(
     const now = new Date();
     const inScope = concerts.filter(
       (concert) =>
-        matchesCategory(concert, category, now, weekOffset) &&
+        matchesCategory(concert, category, now, weekOffset, city.timezone) &&
         (!selectedBorough || isWithinBorough(concert, selectedBorough)),
     );
 
@@ -414,7 +464,7 @@ export function useConcertsFilters(
 
     let soonest: Concert | null = null;
     for (const concert of concerts) {
-      if (!matchesCategory(concert, category, now, weekOffset)) continue;
+      if (!matchesCategory(concert, category, now, weekOffset, city.timezone)) continue;
       if (selectedBorough && !isWithinBorough(concert, selectedBorough)) continue;
       const date = new Date(concert.startDateTime);
       if (date <= weekEnd) continue;
@@ -429,7 +479,10 @@ export function useConcertsFilters(
       (showDate.getTime() - currentStart.getTime()) / (7 * 24 * 60 * 60 * 1000),
     );
     return { concert: soonest, weekOffset: Math.min(MAX_WEEKS_AHEAD, Math.max(0, weeksAhead)) };
-  }, [concerts, category, selectedBorough, weekOffset]);
+    // city.timezone is a real dependency now that the category match resolves on
+    // the venue's calendar — without it, switching city would keep offering a
+    // "next show" computed against the previous city's clock.
+  }, [concerts, category, selectedBorough, weekOffset, city.timezone]);
 
   /**
    * Everything currently narrowing the list, named the way the user chose it.
@@ -472,7 +525,7 @@ export function useConcertsFilters(
     // every render — would defeat the memoization entirely.
     const now = new Date();
     return concerts.filter((concert) => {
-      if (!matchesCategory(concert, category, now, weekOffset)) return false;
+      if (!matchesCategory(concert, category, now, weekOffset, city.timezone)) return false;
       if (followingOnly && !matchesFollows(concert, followedArtistKeys, followedVenueKeys))
         return false;
       if (selectedBorough && !isWithinBorough(concert, selectedBorough)) return false;
@@ -491,7 +544,10 @@ export function useConcertsFilters(
       }
       if (dateKey)
         return getConcertDateKey(new Date(concert.startDateTime), concert.timezone ?? city.timezone) === dateKey;
-      return isWithinActiveWindow(concert, category, weekOffset, now);
+      // Both branches now answer on the venue's calendar, so tapping a night
+      // and not tapping one are two cases of one comparison rather than two
+      // different questions.
+      return isWithinActiveWindow(concert, weekOffset, now, city.timezone);
     });
   }, [
     concerts,
