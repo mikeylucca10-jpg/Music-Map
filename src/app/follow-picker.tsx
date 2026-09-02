@@ -17,7 +17,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { addFollows, followKey, FollowKind } from '@/services/follows';
 import { CITIES } from '@/types/concert';
 
-type Candidate = { kind: FollowKind; name: string; dates: number };
+type Candidate = { kind: FollowKind; name: string; dates: number; artistId?: string };
 
 /**
  * Pick several things to follow at once, from what is actually playing.
@@ -66,15 +66,26 @@ export default function FollowPickerScreen() {
   const { venues, artists } = useMemo(() => {
     const venueCounts = new Map<string, number>();
     const artistCounts = new Map<string, number>();
+    // Kept alongside the count so the follow written from here carries the
+    // source's stable id, not just the name. This screen is where most follows
+    // are created, so an id dropped here meant the exact-id match was covering
+    // almost nothing.
+    const artistIds = new Map<string, string>();
     for (const concert of concerts) {
       venueCounts.set(concert.venueName, (venueCounts.get(concert.venueName) ?? 0) + 1);
       if (concert.artist) {
         artistCounts.set(concert.artist, (artistCounts.get(concert.artist) ?? 0) + 1);
+        // First id wins. Two acts sharing a name is exactly what the id is for,
+        // and picking one deterministically beats letting the last listing in
+        // the feed decide.
+        if (concert.artistId && !artistIds.has(concert.artist)) {
+          artistIds.set(concert.artist, concert.artistId);
+        }
       }
     }
     const build = (counts: Map<string, number>, kind: FollowKind): Candidate[] =>
       [...counts.entries()]
-        .map(([name, dates]) => ({ kind, name, dates }))
+        .map(([name, dates]) => ({ kind, name, dates, artistId: artistIds.get(name) }))
         .filter((candidate) => !alreadyFollowed.has(`${candidate.kind}:${followKey(candidate.name)}`))
         .sort((a, b) => b.dates - a.dates || a.name.localeCompare(b.name));
     return { venues: build(venueCounts, 'venue'), artists: build(artistCounts, 'artist') };
@@ -101,7 +112,11 @@ export default function FollowPickerScreen() {
     try {
       const items = [...venues, ...artists]
         .filter((candidate) => selected.has(`${candidate.kind}:${followKey(candidate.name)}`))
-        .map((candidate) => ({ kind: candidate.kind, name: candidate.name }));
+        .map((candidate) => ({
+          kind: candidate.kind,
+          name: candidate.name,
+          artistId: candidate.artistId,
+        }));
       await addFollows(session.user.id, items);
       await refresh();
       // The ask lands here rather than at launch, and that placement is the

@@ -4,6 +4,7 @@ import * as Linking from 'expo-linking';
 import { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 
+import { clearUserCache } from '@/lib/cache';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { releaseCurrentPushToken } from '@/services/push-tokens';
 
@@ -19,17 +20,6 @@ function getResetPasswordRedirectUrl(): string | undefined {
     return typeof window !== 'undefined' ? `${window.location.origin}/reset-password` : undefined;
   }
   return Linking.createURL('reset-password');
-}
-
-// Where Apple's hosted OAuth flow returns to, for the platforms with no native
-// provider. Web computes it from the current origin like the reset link does;
-// native falls back to the app scheme, which — like the reset flow — needs the
-// scheme on Supabase's redirect allow list before it can work.
-function getAppleRedirectUrl(): string | undefined {
-  if (Platform.OS === 'web') {
-    return typeof window !== 'undefined' ? window.location.origin : undefined;
-  }
-  return Linking.createURL('');
 }
 
 export function useAuth() {
@@ -88,13 +78,23 @@ export function useAuth() {
   const signInWithApple = useCallback(async () => {
     setError(null);
 
+    // iOS only, and it fails closed rather than falling back to hosted OAuth.
+    //
+    // There was a web/Android branch here calling signInWithOAuth. It was
+    // unreachable — AppleSignInButton is the only caller and renders nothing
+    // off iOS — and it would have been wrong if it ever ran: no flowType is
+    // set, so the client defaults to implicit, and Apple would redirect back
+    // with #access_token and #refresh_token in the URL. With
+    // detectSessionInUrl:false (required for the AsyncStorage adapter on
+    // native) nothing consumes that fragment, so the user would land signed out
+    // while a long-lived refresh token sat in the address bar, in history, and
+    // readable by any script on the origin.
+    //
+    // Deleted rather than fixed: Apple's web flow additionally needs a Service
+    // ID that does not exist yet, so there is nothing to fall back *to*.
     if (Platform.OS !== 'ios') {
-      const { error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider: 'apple',
-        options: { redirectTo: getAppleRedirectUrl() },
-      });
-      if (oauthError) setError(oauthError.message);
-      return !oauthError;
+      setError('Sign in with Apple is only available on iOS.');
+      return false;
     }
 
     try {
@@ -194,9 +194,19 @@ export function useAuth() {
     // cannot repair it either: the upsert conflicts on the token, and the RLS
     // check refuses an update to a row owned by someone else.
     await releaseCurrentPushToken();
+    // Also before signOut, while the id is still readable. The next account
+    // never sees this data — useCachedResource keys on the user id — but these
+    // entries are unencrypted and outlive the session, and on web they are
+    // localStorage rows any script on the origin can read.
+    const departingUserId = session?.user.id;
+    if (departingUserId) await clearUserCache(departingUserId);
     const { error: signOutError } = await supabase.auth.signOut();
     if (signOutError) setError(signOutError.message);
-  }, []);
+    // Depends on the id because the cache clear above needs the *departing*
+    // user. An empty array would close over the session from first render,
+    // which for anyone who signed in during the session is null — so it would
+    // silently clear nothing.
+  }, [session?.user.id]);
 
   const resetPassword = useCallback(async (email: string) => {
     setError(null);

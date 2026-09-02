@@ -97,20 +97,29 @@ export async function removeFollow(userId: string, kind: FollowKind, name: strin
  */
 export async function addFollows(
   userId: string,
-  items: { kind: FollowKind; name: string }[],
+  items: { kind: FollowKind; name: string; artistId?: string }[],
 ): Promise<void> {
-  const byKind = { artist: [] as string[], venue: [] as string[] };
-  for (const item of items) byKind[item.kind].push(item.name);
+  type Item = { name: string; artistId?: string };
+  const byKind = { artist: [] as Item[], venue: [] as Item[] };
+  for (const item of items) byKind[item.kind].push({ name: item.name, artistId: item.artistId });
 
   await Promise.all(
     (Object.keys(byKind) as FollowKind[])
       .filter((kind) => byKind[kind].length > 0)
       .map(async (kind) => {
         const { table, keyCol, nameCol } = TABLE[kind];
-        const rows = byKind[kind].map((name) => ({
+        const rows = byKind[kind].map(({ name, artistId }) => ({
           user_id: userId,
           [keyCol]: followKey(name),
           [nameCol]: name,
+          // Carried through, exactly as addFollow already does for the single
+          // case. Without it the bulk path wrote artist_id NULL — and the bulk
+          // path is the *primary* one, since the follow picker is where most
+          // follows are created. So 20260823120000_follow_by_artist_id, which
+          // exists to stop two different acts sharing a name being confused for
+          // one another, was covering only the minority of rows and silently
+          // degrading to the name match everywhere else.
+          ...(kind === 'artist' && artistId ? { artist_id: artistId } : {}),
         }));
         const { error } = await supabase.from(table).upsert(rows);
         if (error) throw new Error(error.message);
