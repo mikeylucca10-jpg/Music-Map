@@ -1,5 +1,6 @@
 import { Session } from '@supabase/supabase-js';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
 import { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
@@ -70,10 +71,11 @@ export function useAuth() {
    * rule does not apply and any provider meeting its three criteria (name and
    * email only, address masking, no ad tracking) would satisfy it anyway.
    *
-   * Two different flows behind one function. On iOS the OS supplies a signed
-   * identity token directly, which is exchanged with Supabase — no browser, no
-   * redirect, and the Face ID sheet is the whole interaction. Everywhere else
-   * there is no native provider, so it falls back to the hosted OAuth redirect.
+   * iOS only. The OS supplies a signed identity token directly, which is
+   * exchanged with Supabase — no browser, no redirect, and the Face ID sheet is
+   * the whole interaction. There is no fallback elsewhere; see the note at the
+   * platform check below for why the hosted-OAuth branch was removed rather
+   * than kept.
    */
   const signInWithApple = useCallback(async () => {
     setError(null);
@@ -98,11 +100,30 @@ export function useAuth() {
     }
 
     try {
+      // A nonce binds the identity token to *this* sign-in attempt.
+      //
+      // Without one the token carries no nonce claim, and anyone who obtains a
+      // valid token minted for this app's bundle id can replay it against
+      // Supabase inside its ~10-minute validity and get a full session — from a
+      // compromised device, a modified build, or a crash report the token
+      // landed in. Supabase already enforces the check when a nonce is present
+      // (`skip_nonce_check = false`); there simply was not one to check.
+      //
+      // Apple is handed the SHA-256; Supabase is handed the raw value, and
+      // hashes it itself to compare against the claim. Sending the raw value to
+      // Apple, or the hash to Supabase, silently fails the comparison.
+      const rawNonce = Crypto.randomUUID();
+      const hashedNonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        rawNonce,
+      );
+
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
+        nonce: hashedNonce,
       });
 
       // Documented as nullable, and a null token cannot be exchanged — treated
@@ -116,6 +137,12 @@ export function useAuth() {
       const { error: tokenError } = await supabase.auth.signInWithIdToken({
         provider: 'apple',
         token: credential.identityToken,
+        // The raw value, not the hash Apple received — Supabase hashes this
+        // itself and compares it to the token's nonce claim. Omitting it once
+        // Apple has been given a nonce does not merely skip the check: the
+        // token now *carries* a nonce claim, and Supabase verifies claims it
+        // finds, so sign-in would fail outright.
+        nonce: rawNonce,
       });
       if (tokenError) {
         setError(tokenError.message);

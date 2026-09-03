@@ -1,5 +1,5 @@
 import * as Notifications from 'expo-notifications';
-import Constants from 'expo-constants';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Platform } from 'react-native';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -36,7 +36,11 @@ function getUnsupportedReason(): string | null {
   // Expo Go stopped carrying push support in SDK 54; this project is on 57. In
   // Expo Go the call does not fail cleanly — it throws — so this is checked
   // first rather than caught after.
-  if (Constants.appOwnership === 'expo') {
+  // executionEnvironment, not appOwnership — the latter is deprecated in SDK 57
+  // and its own type definition says to use this instead. `StoreClient` is the
+  // Expo Go value; Bare and Standalone are the two builds that can receive a
+  // push.
+  if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient) {
     return 'Push notifications need a development build. They no longer work in Expo Go.';
   }
   return null;
