@@ -6,17 +6,12 @@ import { useTheme } from '@/hooks/use-theme';
 import type { ConcertStatus } from '@/types/concert';
 
 /**
- * What each status is worth saying, and nothing for the ones that are not.
+ * Only the states worth saying. onsale and undefined render nothing — a badge on
+ * every card is information on none of them.
  *
- * `onsale` and `undefined` both render nothing: the overwhelming majority of
- * listings are on sale, and a tag on every card would say nothing while costing
- * a line on all of them. A badge is only information when it is rare.
- *
- * `offsale` is deliberately absent too. It means tickets are not currently
- * being sold — which for a club night is as often "not on sale yet" as "gone",
- * and the API does not distinguish them. Guessing "SOLD OUT" from it would be a
- * confident claim about something unknown, which is the same failure as the
- * mock prices the terms already have to disclaim.
+ * offsale is deliberately absent: for a club night it is as often "not on sale
+ * yet" as "gone", and the API does not distinguish them, so labelling it
+ * "SOLD OUT" would be a confident claim about something unknown.
  */
 const LABELS: Partial<Record<ConcertStatus, string>> = {
   cancelled: 'Cancelled',
@@ -28,17 +23,11 @@ const LABELS: Partial<Record<ConcertStatus, string>> = {
  * Says when a show is not happening as listed.
  *
  * The feed carries this on every event and the app ignored it, so a cancelled
- * show sat in the list looking exactly like a real one, with a working "Buy
- * Tickets" row underneath. Sending someone across a city to a show that is not
- * happening is a worse failure than any empty state.
+ * show sat in the list looking real, with a working "Buy Tickets" row beneath.
+ * Measured live: 2 of 131 NYC events — rare enough to stay meaningful.
  *
- * Measured on the live NYC feed: 2 of 131 events were not on sale. Rare enough
- * that a tag stays meaningful, common enough that it will be seen.
- *
- * Uses the accent as a fill rather than as text — this sits on poster art, not
- * on the app's dark ground, so it needs its own background to be legible at
- * all. That is the same reason the map pin uses `accent` rather than
- * `accentText`.
+ * Uses accent as a fill, not accentText: this sits on poster art rather than
+ * the app's dark ground, so it needs its own background to be legible.
  */
 export function ConcertStatusTag({ status }: { status?: ConcertStatus }) {
   const theme = useTheme();
