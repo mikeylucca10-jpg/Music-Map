@@ -7,7 +7,7 @@
 
 import '@/global.css';
 
-import { Platform } from 'react-native';
+import { Platform, type TextStyle } from 'react-native';
 
 const palette = {
   text: '#F5F5F7',
@@ -218,3 +218,15 @@ export const PosterDisplayWidth = 360;
  * resolution on the art that is the visual centre of the card.
  */
 export const PosterImageScale = 2;
+
+/**
+ * Suppresses the browser's default focus outline on a TextInput.
+ *
+ * Web only: the harsh white box the browser draws on a focused field reads as
+ * broken against a near-black form, and every input here already shows focus
+ * through its own raised surface. `outlineStyle` is absent from React Native's
+ * TextStyle, so the cast is the honest way to say "web-only" rather than
+ * widening the whole stylesheet. Null on native, where there is no outline.
+ */
+export const NoFocusRing =
+  Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as TextStyle) : null;

@@ -1,13 +1,13 @@
 import { router } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Platform, Pressable, StyleSheet, TextInput, TextStyle, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { ConcertListCard } from '@/components/concert-list-card';
 import { ScreenScaffold } from '@/components/screen-scaffold';
 import { SkeletonCardRow } from '@/components/skeleton-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, NoFocusRing } from '@/constants/theme';
 import { useApplyDefaultCity } from '@/hooks/use-apply-default-city';
 import { useAuth } from '@/hooks/use-auth';
 import { useEdmConcerts } from '@/hooks/use-edm-concerts';
@@ -177,14 +177,8 @@ export default function SearchScreen() {
   );
 }
 
-/**
- * React Native Web maps TextInput onto a real <input>, which draws a focus
- * ring nothing else in this app uses. outlineStyle is a genuine web style but
- * absent from React Native TextStyle, so the cast is the honest way to say
- * "this is web-only" rather than widening the whole stylesheet.
- */
-const noFocusRing =
-  Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as TextStyle) : null;
+// Shared with the sign-in form — the why lives with NoFocusRing in theme.ts.
+const noFocusRing = NoFocusRing;
 
 const styles = StyleSheet.create({
   fieldRow: { paddingBottom: Spacing.one },

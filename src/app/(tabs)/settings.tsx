@@ -7,7 +7,7 @@ import { ScreenScaffold } from '@/components/screen-scaffold';
 import { SettingsRow } from '@/components/settings-row';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Colors, Fonts, NoFocusRing, Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useProfile } from '@/hooks/use-profile';
 import { useFollows } from '@/hooks/use-follows';
@@ -151,7 +151,7 @@ export default function SettingsScreen() {
                   placeholder="Display name"
                   placeholderTextColor={theme.textSecondary}
                   maxLength={50}
-                  style={[styles.input, { color: theme.text }]}
+                  style={[styles.input, NoFocusRing, { color: theme.text }]}
                 />
               </ThemedView>
               <Pressable onPress={saveDisplayName} style={({ pressed }) => pressed && styles.pressed}>
@@ -294,7 +294,7 @@ export default function SettingsScreen() {
               placeholderTextColor={theme.textSecondary}
               autoCapitalize="none"
               keyboardType="email-address"
-              style={[styles.input, { color: theme.text }]}
+              style={[styles.input, NoFocusRing, { color: theme.text }]}
             />
           </ThemedView>
 
@@ -309,7 +309,7 @@ export default function SettingsScreen() {
                 placeholder="Password"
                 placeholderTextColor={theme.textSecondary}
                 secureTextEntry
-                style={[styles.input, { color: theme.text }]}
+                style={[styles.input, NoFocusRing, { color: theme.text }]}
               />
             </ThemedView>
           )}
@@ -335,7 +335,7 @@ export default function SettingsScreen() {
                   textContentType="oneTimeCode"
                   autoComplete="one-time-code"
                   maxLength={10}
-                  style={[styles.input, { color: theme.text }]}
+                  style={[styles.input, NoFocusRing, { color: theme.text }]}
                 />
               </ThemedView>
 
@@ -345,9 +345,13 @@ export default function SettingsScreen() {
                 style={({ pressed }) => [
                   styles.submitButton,
                   pressed && styles.pressed,
-                  (!code.trim() || isSubmitting) && styles.disabled,
+                  (!code.trim() || isSubmitting) && styles.submitButtonDisabled,
                 ]}>
-                <ThemedText style={styles.submitButtonLabel}>
+                <ThemedText
+                  style={[
+                    styles.submitButtonLabel,
+                    (!code.trim() || isSubmitting) && styles.submitButtonLabelDisabled,
+                  ]}>
                   {isSubmitting ? 'Please wait…' : 'Sign In'}
                 </ThemedText>
               </Pressable>
@@ -393,9 +397,14 @@ export default function SettingsScreen() {
             style={({ pressed }) => [
               styles.submitButton,
               pressed && styles.pressed,
-              (!email.trim() || !password.trim() || isSubmitting) && styles.disabled,
+              (!email.trim() || !password.trim() || isSubmitting) && styles.submitButtonDisabled,
             ]}>
-            <ThemedText style={styles.submitButtonLabel}>
+            <ThemedText
+              style={[
+                styles.submitButtonLabel,
+                (!email.trim() || !password.trim() || isSubmitting) &&
+                  styles.submitButtonLabelDisabled,
+              ]}>
               {isSubmitting ? 'Please wait…' : mode === 'signIn' ? 'Sign In' : 'Sign Up'}
             </ThemedText>
           </Pressable>
@@ -608,6 +617,16 @@ const styles = StyleSheet.create({
     color: Colors.dark.accentInk,
     fontSize: Fonts.size.base,
     fontWeight: '700',
+  },
+  // A neutral surface, not a dimmed accent. Fading the red fill to 40% left a
+  // muddy dark-red on near-black that read as an error state — the first thing
+  // anyone sees on Settings before typing. Disabled means "not yet", and the
+  // raised neutral says that; a broken-looking red says something went wrong.
+  submitButtonDisabled: {
+    backgroundColor: Colors.dark.backgroundSelected,
+  },
+  submitButtonLabelDisabled: {
+    color: Colors.dark.textSecondary,
   },
 });
 
