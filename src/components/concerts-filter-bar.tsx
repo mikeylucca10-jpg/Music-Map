@@ -177,6 +177,73 @@ export function ConcertsFilterBar({
 
   // Where and when, stated rather than folded into two truncating pills.
   //
+  // Hoisted because both variants render them, in different places: the list
+  // screen in a pill row, the map inside the summary card. One definition keeps
+  // the two from drifting apart.
+  //
+  // Names the active category rather than always reading "Filters". The City
+  // and Date pills already show their own state; this one did not, which is
+  // the gap that has people opening a menu just to re-read what they picked.
+  const filtersPill = (
+    <FilterPill
+      label={category === 'All' ? 'Filters' : category}
+      onPress={() => setOpenSheet('filters')}
+      active={category !== 'All'}
+      opens
+      accessibilityLabel={
+        category === 'All' ? 'Filters. None applied' : `Filter: ${category}. Change filter`
+      }
+    />
+  );
+
+  // Rendered only once something is followed. A control that can only ever
+  // return an empty list is worse than no control, and hiding it until it
+  // works also keeps the row from growing for people who have not followed
+  // anything yet. Deliberately a visible pill rather than an item inside the
+  // Filters sheet — a sheet hides its options until opened, and this is the
+  // one filter that makes the list personal.
+  const followingPill = followCount > 0 && onFollowingOnlyChange && (
+    <FilterPill
+      label={followingOnly ? '✓ Following' : 'Following'}
+      onPress={() => onFollowingOnlyChange(!followingOnly)}
+      active={followingOnly}
+      selected={followingOnly}
+      accessibilityLabel={
+        followingOnly
+          ? `Showing only shows you follow${typeof resultCount === 'number' ? `, ${resultCount} shows` : ''}. Tap to show all.`
+          : `Show only shows from the ${followCount} artists and venues you follow`
+      }
+    />
+  );
+
+  // The label names what it will undo when that is one specific thing —
+  // "Clear 21+" beats a bare "Reset", which says nothing about what is about
+  // to change. Past one it becomes a count, since listing four filters would
+  // wrap.
+  const resetButton = activeFilters.length > 0 && onResetFilters && (
+    <Pressable
+      onPress={onResetFilters}
+      accessibilityRole="button"
+      accessibilityLabel={`Clear ${activeFilters
+        .map((filter) => filter.label)
+        .join(', ')}. Back to this week, all shows.`}
+      hitSlop={10}
+      style={({ pressed }) => [pressed && styles.pressed]}>
+      <ThemedView type="backgroundElement" style={styles.resetChip}>
+        <ThemedText
+          type="smallBold"
+          numberOfLines={1}
+          style={[styles.resetChipLabel, { color: theme.accentText }]}>
+          {activeFilters.length === 1
+            ? activeFilters[0].id === 'week'
+              ? 'Back to this week'
+              : `Clear ${activeFilters[0].label}`
+            : `Clear all ${activeFilters.length}`}
+        </ThemedText>
+      </ThemedView>
+    </Pressable>
+  );
+
   // On the map the filter bar is the only text on screen, and three pills side
   // by side spend their width on chrome — a dropdown arrow each, a label each,
   // and "New York" abbreviated to fit. A summary card says the same thing in
@@ -221,6 +288,19 @@ export function ConcertsFilterBar({
           )}
         </Pressable>
       )}
+
+      {/* Third row: what kind. Filters and Clear used to float below the card
+          as loose pills — and Clear brought its own "N shows" chip, so once a
+          filter was on the count appeared twice, 100px apart, with the card's
+          copy directly above. Inside the card there is one count, one place to
+          look, and one fewer thing over the map. */}
+      <View style={styles.summaryFilterRow}>
+        <View style={styles.summaryFilterPills}>
+          {filtersPill}
+          {followingPill}
+        </View>
+        {resetButton}
+      </View>
     </View>
   );
 
@@ -228,9 +308,10 @@ export function ConcertsFilterBar({
     <View style={styles.container}>
       {variant === 'summary' && summaryHeader}
 
+      {/* List screen only. On the map every one of these lives inside the
+          summary card instead, so this row would repeat all of them. */}
+      {variant === 'pills' && (
       <View style={styles.pillsRow}>
-        {/* Both live in the summary card in that variant, so rendering them
-            here too would state where and when twice in a row. */}
         {variant === 'pills' && (
           <FilterPill
             label={cityPillLabel}
@@ -251,41 +332,10 @@ export function ConcertsFilterBar({
           />
         )}
 
-        {/* Names the active category rather than always reading "Filters". The
-            City and Date pills already show their own state; this one did not,
-            which is the gap that has people opening a menu just to re-read what
-            they picked. */}
-        <FilterPill
-          label={category === 'All' ? 'Filters' : category}
-          onPress={() => setOpenSheet('filters')}
-          active={category !== 'All'}
-          opens
-          accessibilityLabel={
-            category === 'All' ? 'Filters. None applied' : `Filter: ${category}. Change filter`
-          }
-        />
-
-        {/* Rendered only once something is followed. A control that can only
-            ever return an empty list is worse than no control, and hiding it
-            until it works also keeps the row from growing for people who have
-            not followed anything yet. Deliberately a visible pill rather than
-            an item inside the Filters sheet — a sheet hides its options until
-            opened, and this is the one filter that makes the list personal. */}
-        {followCount > 0 && onFollowingOnlyChange && (
-          <FilterPill
-            label={followingOnly ? '✓ Following' : 'Following'}
-            onPress={() => onFollowingOnlyChange(!followingOnly)}
-            active={followingOnly}
-            selected={followingOnly}
-            accessibilityLabel={
-              followingOnly
-                ? `Showing only shows you follow${typeof resultCount === 'number' ? `, ${resultCount} shows` : ''}. Tap to show all.`
-                : `Show only shows from the ${followCount} artists and venues you follow`
-            }
-          />
-        )}
-
+        {filtersPill}
+        {followingPill}
       </View>
+      )}
 
       {/* Only exists while something is actually narrowing the list, which is
           both the researched pattern and a hard layout requirement here: a
@@ -297,7 +347,7 @@ export function ConcertsFilterBar({
           "Clear 21+" beats a bare "Reset", which says nothing about what is
           about to change. Past one it becomes a count, since listing four
           filters would wrap. */}
-      {activeFilters.length > 0 && onResetFilters && (
+      {variant === 'pills' && activeFilters.length > 0 && onResetFilters && (
         <View style={styles.resetRow}>
           {/* The count shares this line rather than the reset sitting alone.
               Communicating filter state means saying how much survived the
@@ -312,27 +362,7 @@ export function ConcertsFilterBar({
           ) : (
             <View />
           )}
-          <Pressable
-            onPress={onResetFilters}
-            accessibilityRole="button"
-            accessibilityLabel={`Clear ${activeFilters
-              .map((filter) => filter.label)
-              .join(', ')}. Back to this week, all shows.`}
-            hitSlop={10}
-            style={({ pressed }) => [pressed && styles.pressed]}>
-            <ThemedView type="backgroundElement" style={styles.resetChip}>
-              <ThemedText
-                type="smallBold"
-                numberOfLines={1}
-                style={[styles.resetChipLabel, { color: theme.accentText }]}>
-                {activeFilters.length === 1
-                  ? activeFilters[0].id === 'week'
-                    ? 'Back to this week'
-                    : `Clear ${activeFilters[0].label}`
-                  : `Clear all ${activeFilters.length}`}
-              </ThemedText>
-            </ThemedView>
-          </Pressable>
+          {resetButton}
         </View>
       )}
 
@@ -467,6 +497,18 @@ const styles = StyleSheet.create({
     minHeight: MinTouchTarget - 8,
   },
   summaryPlace: { flexShrink: 1 },
+  summaryFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.one,
+    minHeight: MinTouchTarget - 8,
+  },
+  summaryFilterPills: {
+    flexDirection: 'row',
+    gap: Spacing.one,
+    flexShrink: 1,
+  },
   summaryCaret: { fontSize: 16 },
   pillsRow: {
     flexDirection: 'row',

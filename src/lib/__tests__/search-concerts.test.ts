@@ -80,4 +80,35 @@ describe('topSuggestions', () => {
     expect(names).not.toContain(undefined);
     expect(names).not.toContain('');
   });
+
+  it('keeps artists in the list even when every venue has more dates', () => {
+    // The real feed: a handful of rooms with 5–10 nights each, and nearly every
+    // act with exactly one. One merged sort by count put eight venues under a
+    // field that promises "Artists, venues" and never a single artist.
+    const busyRooms = ['Room A', 'Room B', 'Room C', 'Room D', 'Room E', 'Room F', 'Room G', 'Room H'];
+    const concerts = busyRooms.flatMap((venueName, v) =>
+      Array.from({ length: 6 }, (_, i) => ({
+        ...CONCERTS[0],
+        id: `${v}-${i}`,
+        venueName,
+        artist: `Act ${v}-${i}`, // every act plays once
+      })),
+    );
+    const suggestions = topSuggestions(concerts, 8);
+    const kinds = new Set(suggestions.map((s) => s.kind));
+    expect(suggestions).toHaveLength(8);
+    expect(kinds.has('artist')).toBe(true);
+    expect(kinds.has('venue')).toBe(true);
+    // Half the slots are reserved, so it is not a token single artist either.
+    expect(suggestions.filter((s) => s.kind === 'artist').length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('backfills from the other kind when one bucket is short', () => {
+    // Three venues, two artists, limit 8: all five should appear rather than
+    // leaving reserved slots empty.
+    const suggestions = topSuggestions(CONCERTS, 8);
+    const venueCount = new Set(CONCERTS.map((c) => c.venueName)).size;
+    const artistCount = new Set(CONCERTS.map((c) => c.artist).filter(Boolean)).size;
+    expect(suggestions).toHaveLength(Math.min(8, venueCount + artistCount));
+  });
 });

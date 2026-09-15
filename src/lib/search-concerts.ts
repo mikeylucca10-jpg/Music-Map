@@ -105,14 +105,25 @@ export function topSuggestions(concerts: Concert[], limit = 8): SearchSuggestion
     if (concert.artist) artists.set(concert.artist, (artists.get(concert.artist) ?? 0) + 1);
   }
 
+  const byCount = (a: SearchSuggestion, b: SearchSuggestion) =>
+    b.count - a.count || a.name.localeCompare(b.name);
   const build = (counts: Map<string, number>, kind: 'artist' | 'venue'): SearchSuggestion[] =>
-    [...counts.entries()].map(([name, count]) => ({ kind, name, count }));
+    [...counts.entries()]
+      .map(([name, count]) => ({ kind, name, count }))
+      .sort(byCount);
 
-  // Venues and artists are interleaved by count rather than shown as two
-  // separate lists. The question being answered is "what is worth tapping",
-  // and a room with six nights on beats an artist with one whichever bucket
-  // they fall in.
-  return [...build(venues, 'venue'), ...build(artists, 'artist')]
-    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
-    .slice(0, limit);
+  // Each kind gets half the slots before anything competes for the rest. One
+  // merged sort by count sounded right — "what is worth tapping" — but a room
+  // with five nights on always outranks an act with one or two, and almost no
+  // act has more than one date, so the top eight came out as eight venues under
+  // a field that promises "Artists, venues". Reserving slots keeps both kinds
+  // present; the leftover from a short bucket goes to the other so the row is
+  // still full.
+  const half = Math.ceil(limit / 2);
+  const venueList = build(venues, 'venue');
+  const artistList = build(artists, 'artist');
+  const venueTake = Math.min(venueList.length, Math.max(half, limit - artistList.length));
+  const artistTake = Math.min(artistList.length, limit - venueTake);
+
+  return [...venueList.slice(0, venueTake), ...artistList.slice(0, artistTake)].sort(byCount);
 }
