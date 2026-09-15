@@ -295,10 +295,14 @@ export function ConcertsFilterBar({
           copy directly above. Inside the card there is one count, one place to
           look, and one fewer thing over the map. */}
       <View style={styles.summaryFilterRow}>
-        <View style={styles.summaryFilterPills}>
-          {filtersPill}
-          {followingPill}
-        </View>
+        {filtersPill}
+        {followingPill}
+        {/* Beside the pills, not pushed to the far right. iOS stacks its own
+            map controls — the location arrow, the compass — in the top-right
+            corner, and right-aligning the one control that appears on
+            filter-apply put it exactly there. Left, it can only ever sit next
+            to the pill it clears. The card's height does not change when a
+            filter is applied either, so applying one moves nothing downward. */}
         {resetButton}
       </View>
     </View>
@@ -500,14 +504,13 @@ const styles = StyleSheet.create({
   summaryFilterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    // Left-packed on purpose — see the note at the row. space-between would
+    // send the last child to the top-right corner, where iOS draws its own
+    // map controls.
+    justifyContent: 'flex-start',
+    flexWrap: 'wrap',
     gap: Spacing.one,
     minHeight: MinTouchTarget - 8,
-  },
-  summaryFilterPills: {
-    flexDirection: 'row',
-    gap: Spacing.one,
-    flexShrink: 1,
   },
   summaryCaret: { fontSize: 16 },
   pillsRow: {
