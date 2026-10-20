@@ -54,7 +54,7 @@ function envValue(name: string): string | undefined {
   }
 }
 
-const NYC = CITIES[0];
+type TripwireCity = (typeof CITIES)[number];
 
 /**
  * Uses node:https rather than fetch.
@@ -92,7 +92,7 @@ async function eventsFrom(url: string, headers?: Record<string, string>): Promis
   }
 }
 
-async function fetchLiveEvents(): Promise<LiveEvent[]> {
+async function fetchLiveEvents(city: TripwireCity): Promise<LiveEvent[]> {
   const supabaseUrl = envValue('EXPO_PUBLIC_SUPABASE_URL');
   const anonKey = envValue('EXPO_PUBLIC_SUPABASE_ANON_KEY');
   const apiKey = envValue('EXPO_PUBLIC_TICKETMASTER_API_KEY');
@@ -100,7 +100,7 @@ async function fetchLiveEvents(): Promise<LiveEvent[]> {
   // Prefer the deployed proxy: it is the real production path and needs no
   // local key. Falls back to a direct call while the function is undeployed.
   if (supabaseUrl) {
-    const viaProxy = await eventsFrom(`${supabaseUrl}/functions/v1/concerts?cityId=${NYC.id}`, {
+    const viaProxy = await eventsFrom(`${supabaseUrl}/functions/v1/concerts?cityId=${city.id}`, {
       Authorization: `Bearer ${anonKey ?? ''}`,
     });
     if (viaProxy) return viaProxy;
@@ -114,9 +114,9 @@ async function fetchLiveEvents(): Promise<LiveEvent[]> {
 
   const params = new URLSearchParams({
     apikey: apiKey,
-    city: NYC.ticketmasterCity,
-    stateCode: NYC.ticketmasterStateCode,
-    countryCode: NYC.ticketmasterCountryCode,
+    city: city.ticketmasterCity,
+    stateCode: city.ticketmasterStateCode,
+    countryCode: city.ticketmasterCountryCode,
     classificationName: 'Dance/Electronic',
     startDateTime: `${new Date().toISOString().split('.')[0]}Z`,
     sort: 'date,asc',
@@ -135,7 +135,16 @@ function countByAct(events: LiveEvent[]) {
   return [...byAct.entries()].sort((a, b) => b[1] - a[1]);
 }
 
-describe('live feed tripwire', () => {
+// Every city, not CITIES[0]. The single-city version hardcoded New York and
+// was blind to the exact failure it exists to catch: on 2026-10-20 Las Vegas
+// was 94% one act (Jabbawockeez, 530 of 566 listings — a dance-crew show at
+// its own MGM Grand theatre, tagged Dance/Electronic by Ticketmaster) while
+// NYC sat at a healthy 11% and the tripwire reported PASS. Harry Styles, the
+// case that prompted this file, was 36%.
+//
+// One describe per city so each gets its own fetch, its own printout, and its
+// own pass/fail — a failing Vegas must not hide a passing NYC, or vice versa.
+describe.each(CITIES)('live feed tripwire: $label', (city) => {
   jest.setTimeout(120_000);
 
   let events: LiveEvent[] = [];
@@ -143,13 +152,13 @@ describe('live feed tripwire', () => {
   let dropped: LiveEvent[] = [];
 
   beforeAll(async () => {
-    events = await fetchLiveEvents();
+    events = await fetchLiveEvents(city);
     kept = events.filter((e) => isLikelyElectronic(classificationsToJudge(e)));
     dropped = events.filter((e) => !isLikelyElectronic(classificationsToJudge(e)));
 
     // Printed unconditionally. Even on a pass this is the thing worth a glance,
     // and it is how both previous breaks were noticed by eye.
-    console.log(`\n  feed: ${events.length} listings -> kept ${kept.length}, dropped ${dropped.length}`);
+    console.log(`\n  [${city.label}] feed: ${events.length} listings -> kept ${kept.length}, dropped ${dropped.length}`);
     console.log(`  dropped acts: ${[...new Set(dropped.map(actOf))].join(', ') || '(none)'}`);
     console.log('  biggest kept acts:');
     for (const [act, n] of countByAct(kept).slice(0, 5)) {
