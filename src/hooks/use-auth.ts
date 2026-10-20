@@ -160,7 +160,9 @@ export function useAuth() {
   }, []);
 
   /**
-   * Email a six-digit sign-in code.
+   * Email a sign-in code. Eight digits and a ten-minute expiry — both set in
+   * the Supabase dashboard (Auth → Providers → Email), not here, so the copy
+   * in settings.tsx has to be kept in step with that page by hand.
    *
    * A code rather than a magic link, deliberately. A link has to redirect back
    * into the app, and this client runs with `detectSessionInUrl: false` (the

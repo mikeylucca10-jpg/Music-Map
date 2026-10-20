@@ -319,7 +319,7 @@ export default function SettingsScreen() {
               <ThemedView type="backgroundSelected" style={styles.messageCard}>
                 <ThemedText type="smallBold">Check your email</ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
-                  We sent a 6-digit code to {codeSentTo}. Enter it below — it expires shortly.
+                  We sent an 8-digit code to {codeSentTo}. Enter it below — it expires in 10 minutes.
                 </ThemedText>
               </ThemedView>
 
@@ -327,7 +327,7 @@ export default function SettingsScreen() {
                 <TextInput
                   value={code}
                   onChangeText={setCode}
-                  placeholder="6-digit code"
+                  placeholder="8-digit code"
                   placeholderTextColor={theme.textSecondary}
                   keyboardType="number-pad"
                   // Lets the OS offer the code straight from the email on iOS,

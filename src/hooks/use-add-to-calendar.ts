@@ -44,7 +44,14 @@ export function useAddToCalendar() {
 
     setState('working');
     try {
-      const permission = await Calendar.requestCalendarPermissionsAsync();
+      // requestCalendarPermissions, not requestCalendarPermissionsAsync. In
+      // expo-calendar 57 the old name is still exported — and typed, so tsc is
+      // happy — but it is a stub that throws "deprecated" on every call
+      // (build/legacyWarnings.js:183, re-exported from the main entry). On
+      // device that meant: tap, no permission dialog, no sheet, state 'failed',
+      // every time. Web never reaches this branch, which is why it was never
+      // seen. The other calls this hook makes are real exports of the new API.
+      const permission = await Calendar.requestCalendarPermissions();
       if (!permission.granted) {
         // Not an error — a deliberate no. The UI says so plainly rather than
         // showing a failure the person did not cause.
@@ -84,7 +91,13 @@ export function useAddToCalendar() {
       // The sheet can be dismissed without saving, which is a normal outcome
       // and must not be reported as success — a false "Added" would have people
       // trusting a calendar entry that does not exist.
-      const saved = result?.action === 'saved';
+      //
+      // The platforms disagree on the word. The docs for DialogEventResult:
+      // "Android: always `done`. iOS: `saved`, `canceled`, or `deleted`." So
+      // checking only 'saved' turned every successful Android save into a
+      // dismissal — state back to 'idle', no "Added", for an entry that exists.
+      const saved =
+        Platform.OS === 'android' ? result?.action === 'done' : result?.action === 'saved';
       setState(saved ? 'added' : 'idle');
       return saved;
     } catch (error) {

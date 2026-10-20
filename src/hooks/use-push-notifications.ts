@@ -121,7 +121,20 @@ export function usePushNotifications(userId: string | null) {
         return false;
       }
 
-      const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
+      // Its own try, for the same reason registration below has one: a token
+      // fetch that fails must not fall through to the outer catch and report
+      // the granted permission as denied. On Android with no
+      // google-services.json this call throws every time — "Unable to get
+      // Firebase Messaging instance" — and the user was then told to turn
+      // notifications back on in device settings, which were already on. The
+      // launch effect retries the fetch on the next open.
+      let token: string | null = null;
+      try {
+        token = (await Notifications.getExpoPushTokenAsync({ projectId })).data ?? null;
+      } catch (tokenError) {
+        console.warn('Push token fetch failed; will retry on next launch', tokenError);
+        return true;
+      }
       // Permission can be granted while there is nobody to attribute the token
       // to — the sheet is reachable before sign-in completes. The grant still
       // stands; the launch effect below registers it once a session exists.
